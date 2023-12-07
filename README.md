@@ -76,3 +76,10 @@ Just run this command:
 ```bash
 python3 mysite/manage.py runserver
 ```
+
+#### Live demo
+
+The application can be viewed at : http://rtrao9999.pythonanywhere.com/
+
+Login email.com : hh@gg.com
+Password : zxcvbnm99
