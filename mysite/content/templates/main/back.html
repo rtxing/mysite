@@ -1,0 +1,39 @@
+{% extends 'layouts/default/page.html' %}
+
+{% load i18n %}
+
+{% block content %}
+
+    {% if request.user.is_authenticated %}
+
+        {% trans 'Your username is' %} <b>{{ request.user.username }}</b>.
+
+<table class="table table-bordered">
+    <tr>
+        <th>Total Cost</th>
+        
+        <th>{{ sum.price__sum }}</th>
+    </tr>
+</table>
+
+       
+  <div class="form-group">
+                                <input type="button" name="submit" class="btn btn-info btn-md" value="Back">
+                            </div>
+
+
+  <div class="form-group">
+               <a href="/">
+    <button>Home</button>
+</a>
+                            </div>
+
+
+
+    {% else %}
+
+        {% trans 'You are a guest.' %}
+
+    {% endif %}
+
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'layouts/default/page.html' %}
+
+{% load i18n %}
+
+{% block content %}
+
+    {% if request.user.is_authenticated %}
+
+        {% trans 'Your username is' %} <b>{{ request.user.username }}</b>.
+
+
+<table class="table table-bordered">
+    <tr>
+        <th>Item Name</th>
+        
+        <th>Price</th>
+    </tr>
+    {% for item in query_results %}
+    <tr> 
+        <td>{{ item.item_name }}</td>
+        
+        <td>{{ item.price }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+  <div class="form-group">
+               <a href="/back">
+    <button>Summary</button>
+</a>
+                            </div>
+
+
+    {% else %}
+
+        {% trans 'You are a guest.' %}
+
+    {% endif %}
+
+{% endblock %}
