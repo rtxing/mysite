@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     #'members',
-    #"debug_toolbar",
+    "debug_toolbar",
     'rest_framework_simplejwt',
     'carshops',
     'rest_framework',
