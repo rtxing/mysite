@@ -25,7 +25,7 @@ from django.conf import settings
 from debug_toolbar.toolbar import debug_toolbar_urls
 from rest_framework.routers import DefaultRouter
 router = DefaultRouter() 
-#router.register(r'carshops', CarshopViewSet)
+router.register(r'carshops', CarshopViewSet)
 router.register(r'booking', BookingViewSet)
 
 
