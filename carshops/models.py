@@ -34,6 +34,16 @@ class Booking(models.Model):
     )
   driver = models.BooleanField()
   date_time = models.DateTimeField()
+  #services = models.ManyToManyField(Service)
+  Booking_status_choices = (
+    ("In_Progress", "In Progress"),
+    ("Completed", "Completed"),
+    ("Cancelled", "Cancelled")
+  )
+  booking_status = models.CharField(max_length=20,
+                  choices=Booking_status_choices, default = "In_Progress"
+                  )
+
 
   def __str__(self):
     return str(self.id)

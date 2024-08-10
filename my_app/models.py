@@ -14,6 +14,8 @@ class User(AbstractUser):
     max_otp_try = models.CharField(max_length=2, default=3)
     otp_max_out = models.DateTimeField(blank=True, null=True)
     name = models.CharField(max_length=255, null=True, blank=True)
+    latitude = models.CharField(max_length=255)
+    longitude = models.CharField(max_length=255)
     
 
     def __str__(self):

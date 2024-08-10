@@ -30,11 +30,13 @@ router.register(r'booking', BookingViewSet)
 
 
 urlpatterns = [
-    path('api/', include((router.urls, 'carshops'), namespace='carshop')),
+    #path('api/', include((router.urls, 'carshops'), namespace='carshop')),
     path('apia/auth/', include('my_app.urls')),
-    #path(r"api/carshop/(?P<id>\d+)/", carshop_id, name ='carsingle'),
-    path('api/carshops/<str:lat>/<str:longt>/', csviews.carshops_geo, name= "geocars"),
+    path("api/carshops/<int:id>/<str:userid>/", carshop_id, name ='carsingle'),
+    path('api/carshops/<str:lat>/<str:longt>/<str:userid>/', csviews.carshops_geo, name= "geocars"),
     path('api/booking2/', csviews.booking2, name= "booking2"),
+    path('api/get_previous_orders/<int:userid>/', csviews.get_previous_orders, name= "get_previous_orders"),
+    path('api/detailbooking/<int:bookingid>/', csviews.detailbooking, name= "detailbooking"),
 
     path('nearones', views.nearones, name='nearones'),
     path('nearones2', views.nearones2, name='nearones2'),
