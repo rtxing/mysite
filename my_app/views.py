@@ -105,7 +105,6 @@ class VerifyOTPView(APIView):
                 refresh = RefreshToken.for_user(user)
                 serialized_obj = serializers.serialize('json', [ user, ])
 
-
                 return Response({'access': str(refresh.access_token), 'user': serialized_obj}, status=status.HTTP_200_OK)
         except ObjectDoesNotExist:
             return Response("Please enter the correct OTP", status=status.HTTP_400_BAD_REQUEST)
