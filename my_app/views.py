@@ -62,7 +62,7 @@ def login_view(request):
         print(user.otp, 'OTP', user.phone)
 
         send_otp(user.phone, otp)
-        data = {'message': "Successfully generated OTP", status:status.HTTP_200_OK }
+        data = {'message': "Successfully generated OTP", 'status':status.HTTP_200_OK }
         return JsonResponse(data)
 
 #        return Response("Successfully generated OTP", status=status.HTTP_200_OK, template_name='')
