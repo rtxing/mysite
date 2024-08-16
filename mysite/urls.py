@@ -27,12 +27,14 @@ from rest_framework.routers import DefaultRouter
 router = DefaultRouter() 
 router.register(r'carshops', CarshopViewSet)
 router.register(r'booking', BookingViewSet)
-
+from my_app.views import login_view, verify_view
 
 urlpatterns = [
     #path('api/', include((router.urls, 'carshops'), namespace='carshop')),
-    path('api/auth2/', include('my_app.urls')),
+    #path('api/auth2/', include('my_app.urls')),
     path("api/carshops/<int:id>/<str:userid>/", carshop_id, name ='carsingle'),
+    path('api/auth2/login/', login_view, name="login_view"),
+    path('api/auth2/verify-otp/', verify_view, name="verify_view"),
     path('api/carshops/<str:lat>/<str:longt>/<str:userid>/', csviews.carshops_geo, name= "geocars"),
     path('api/booking2/', csviews.booking2, name= "booking2"),
     path('api/get_previous_orders/<int:userid>/', csviews.get_previous_orders, name= "get_previous_orders"),
