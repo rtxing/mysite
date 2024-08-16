@@ -15,14 +15,14 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
 
-def carshops_geo(request, lat, longt, userid):
+def carshops_geo(request, lat, longt, phone):
     """url: api/car/pk"""
     try:
     	print("in CG")
     	return_list = []
     	distance = []
     	print(lat, longt)
-    	user = User.objects.get(id = userid)
+    	user = User.objects.get(phone = phone)
     	user.latitude = lat
     	user.longitude = longt 
     	user.save()
