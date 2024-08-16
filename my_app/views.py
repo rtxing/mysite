@@ -3,6 +3,7 @@ import datetime
 from rest_framework.permissions import BasePermission,AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
 from rest_framework import viewsets, status
 from django.contrib.auth import authenticate, login
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -14,12 +15,17 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core import serializers
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
+import json
+from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
+from rest_framework.decorators import api_view, renderer_classes
 
 @csrf_exempt
-@api_view(["POST"])
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 def login_view(request):
-    phone = request.data.get('phone')
-    name = request.data.get('name')
+    data = json.loads(request.body)
+
+    phone = data['phone']
+    name = data['name']
     print("phone is ", phone)
     print("name is ", name)
     
@@ -56,42 +62,50 @@ def login_view(request):
         print(user.otp, 'OTP', user.phone)
 
         send_otp(user.phone, otp)
+        data = {'message': "Successfully generated OTP", status:status.HTTP_200_OK }
+        return JsonResponse(data)
 
-        return Response("Successfully generated OTP", status=status.HTTP_200_OK)
+#        return Response("Successfully generated OTP", status=status.HTTP_200_OK, template_name='')
 
     except:
-        user_ = User.objects.create(phone=phone, name = name)
-        print(user_)
-
-        otp = random.randint(1000, 9999)
+        user = User.objects.create(phone=phone, name = name, username=name.replace(" ", ""))
+        print(user)
+        print("in 2nd")
+        
+        otp = random.randint(100000, 999999)
         otp_expiry = timezone.now() + datetime.timedelta(minutes=10)
-        max_otp_try = int(user_.max_otp_try) - 1
+        max_otp_try = int(user.max_otp_try) - 1
 
-        user_.otp = otp
-        user_.otp_expiry = otp_expiry
-        user_.max_otp_try = max_otp_try
+        user.otp = otp
+        user.otp_expiry = otp_expiry
+        user.max_otp_try = max_otp_try
 
         if max_otp_try == 0:
             otp_max_out = timezone.now() + datetime.timedelta(hours=1)
         elif max_otp_try == -1:
-            user_.max_otp_try = 3
+            user.max_otp_try = 3
         else:
-            user_.otp_max_out = None
-            user_.max_otp_try = max_otp_try
+            user.otp_max_out = None
+            user.max_otp_try = max_otp_try
 
-        user_.is_passenger = True
-        user_.save()
+        user.is_passenger = True
+        user.save()
 
-        send_otp(user_.phone, otp)
+        send_otp(user.phone, otp)
+        data = {'message': "Successfully generated OTP", 'status':status.HTTP_200_OK }
+        return JsonResponse(data)
 
-        return Response("Successfully generated OTP", status=status.HTTP_200_OK)
+        #return Response("Successfully generated OTP", status=status.HTTP_200_OK, template_name='')
     else:
-        return Response("Phone number is incorrect", status=status.HTTP_401_UNAUTHORIZED)
+        data = {'message': 'Phone number is incorrect', 'status':status.HTTP_401_UNAUTHORIZED }
+        return JsonResponse(data)
 
 @csrf_exempt
-@api_view(["POST"])
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 def verify_view(request):
-    otp = request.data['otp']
+    data = json.loads(request.body)
+    print(data)
+    otp = data['otp']
     print(otp)
     try:
         user = User.objects.get(otp=otp)
@@ -104,8 +118,10 @@ def verify_view(request):
             user.save()
             refresh = RefreshToken.for_user(user)
             serialized_obj = serializers.serialize('json', [ user, ])
+            data = {'access': str(refresh.access_token), 'user':serialized_obj,  'status':status.HTTP_200_OK }
+            return JsonResponse(data)
 
-            return Response({'access': str(refresh.access_token), 'user': serialized_obj}, status=status.HTTP_200_OK)
+           # return Response({'access': str(refresh.access_token), 'user': serialized_obj}, status=status.HTTP_200_OK, template_name='')
     except ObjectDoesNotExist:
-        return Response("Please enter the correct OTP", status=status.HTTP_400_BAD_REQUEST)
-
+        data = {'message': 'Please enter the correct OTP', 'status':status.HTTP_400_BAD_REQUEST }
+        return JsonResponse(data)
