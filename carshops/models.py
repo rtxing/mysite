@@ -54,8 +54,18 @@ class Car(models.Model):
   model = models.CharField(max_length=255)
   color = models.CharField(max_length=255)
   car_number = models.TextField()
+  customer = models.ForeignKey(
+        "my_app.User",
+        on_delete=models.CASCADE, related_name = "carcustuser"
+    )
   upload = models.ImageField(upload_to ='uploads/') 
-
+  car_type_choices = (
+    ("Sedan", "Sedan"),
+    ("Hatch_Back", "Hatch Back")
+  )
+  car_type = models.CharField(max_length=20,
+                  choices=car_type_choices
+                  )
 
   def __str__(self):
     return str(self.id)
@@ -68,7 +78,14 @@ class Service(models.Model):
   service_name = models.CharField(max_length=255)
   cost = models.CharField(max_length=255, blank=True, null = True)
   description = models.CharField(max_length=255, blank=True, null = True)
-  
+  car_type_choices = (
+    ("Sedan", "Sedan"),
+    ("Hatch_Back", "Hatch Back")
+  )
+  car_type_status = models.CharField(max_length=20,
+                  choices=car_type_choices
+                  )
+
 
   def __str__(self):
     return str(self.service_name)
