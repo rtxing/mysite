@@ -15,7 +15,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
 
-def carshops_geo(request, lat, longt, phone):
+def carshops_geo(request, lat, longt):
     """url: api/car/pk"""
     try:
         #print("in CG")
@@ -23,10 +23,7 @@ def carshops_geo(request, lat, longt, phone):
         services = []
         distance = []
         #print(lat, longt)
-        user = User.objects.get(phone = phone)
-        user.latitude = lat
-        user.longitude = longt 
-        user.save()
+        #user = User.objects.get(phone = phone)
         carshops = Carshop.objects.all()
         for i in carshops:
             coords_1 = (lat, longt)
