@@ -22,6 +22,18 @@ class Carshop(models.Model):
   	return str(self.id)
 
 
+class Rating(models.Model):
+  star = models.IntegerField()
+  review = models.CharField(max_length=255)
+  booking = models.ForeignKey(
+        "Booking",
+        on_delete=models.CASCADE,
+    )
+  
+  def __str__(self):
+  	return str(self.id)
+
+
 
 class Booking(models.Model):
   shop = models.ForeignKey(

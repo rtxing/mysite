@@ -40,6 +40,7 @@ urlpatterns = [
     path('api/get_previous_orders/<int:phone>/', csviews.get_previous_orders, name= "get_previous_orders"),
     path('api/detailbooking/<int:bookingid>/', csviews.detailbooking, name= "detailbooking"),
     path('api/add_car_details/', csviews.add_car_details, name= "detailboadd_car_detailsking"),
+    path('api/get_services/', csviews.get_services, name= "get_services"),
 
     path('nearones', views.nearones, name='nearones'),
     path('nearones2', views.nearones2, name='nearones2'),
