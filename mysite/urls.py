@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/detailbooking/<int:bookingid>/', csviews.detailbooking, name= "detailbooking"),
     path('api/add_car_details/', csviews.add_car_details, name= "detailboadd_car_detailsking"),
     path('api/get_services/', csviews.get_services, name= "get_services"),
+    path('api/add_review/', csviews.add_review, name= "add_review"),
 
     path('nearones', views.nearones, name='nearones'),
     path('nearones2', views.nearones2, name='nearones2'),

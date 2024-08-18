@@ -26,6 +26,8 @@ def login_view(request):
 
     phone = data['phone']
     name = data['name']
+    latitude = data['latitude']
+    longitude = data['longitude']
     print("phone is ", phone)
     print("name is ", name)
     
@@ -56,7 +58,8 @@ def login_view(request):
         else:
             user.otp_max_out = None
             user.max_otp_try = max_otp_try
-
+        user.latitude = latitude
+        user.longitude = longitude
         user.save()
 
         print(user.otp, 'OTP', user.phone)
@@ -88,6 +91,8 @@ def login_view(request):
             user.otp_max_out = None
             user.max_otp_try = max_otp_try
 
+        user.latitude = latitude
+        user.longitude = longitude
         user.is_passenger = True
         user.save()
 

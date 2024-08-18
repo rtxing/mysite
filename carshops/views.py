@@ -3,7 +3,7 @@ from rest_framework import viewsets
 import geopy.distance
 from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
 # Create your views here.
-from .models import Carshop, Booking, Service
+from .models import Carshop, Booking, Service, Rating
 from django.forms.models import model_to_dict
 from carshops.serializers import CarshopSerializer,BookingSerializer
 import json
@@ -137,6 +137,8 @@ def carshop_id(request, id, phone):
         coords_1 = (carshop.latitude, carshop.longitude)
         coords_2 = (user.latitude, user.longitude)
         distance = int(geopy.distance.geodesic(coords_1, coords_2).km)
+        #service = Service.objects.get(id = carshop.services.id)
+        services = list(carshop.services.values())
     except Exception as e: 
         # Whoopsie
         print(repr(e))
@@ -146,7 +148,7 @@ def carshop_id(request, id, phone):
         )
 
     # Serialise your car or do something with it
-    return JsonResponse([CarshopSerializer(carshop).data, distance], safe= False)
+    return JsonResponse([CarshopSerializer(carshop).data, distance, services], safe= False)
 
 
 def detailbooking(request, bookingid):
@@ -219,3 +221,28 @@ def add_car_details(request):
     # Serialise your car or do something with it
     data = {'message': "Car successfully added."}
     return JsonResponse(data)
+
+
+
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+def add_review(request):
+    """url: api/car/pk"""
+    try:
+        data = json.loads(request.body.decode())
+        stars =data['stars']
+        review = data['review']
+        booking = Booking.objects.get(id=data['booking'])
+        r = Rating.objects.create(stars = stars, review = review, booking= booking)
+        r.save()
+    except:
+        # Whoopsie
+        return HttpResponseNotFound(
+            json.dumps({"ERR": error.message}),
+            content_type="application/json",
+        )
+
+    # Serialise your car or do something with it
+    data = {'message': "Rating successfully added."}
+    return JsonResponse(data)
+

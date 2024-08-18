@@ -23,7 +23,7 @@ class Carshop(models.Model):
 
 
 class Rating(models.Model):
-  star = models.IntegerField()
+  stars = models.IntegerField()
   review = models.CharField(max_length=255)
   booking = models.ForeignKey(
         "Booking",
