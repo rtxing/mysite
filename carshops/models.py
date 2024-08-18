@@ -46,7 +46,10 @@ class Booking(models.Model):
     )
   driver = models.BooleanField()
   date_time = models.DateTimeField()
-  #services = models.ManyToManyField(Service)
+  service = models.ForeignKey(
+        "Service",
+        on_delete=models.CASCADE, related_name = "bkservice"
+    )
   Booking_status_choices = (
     ("In_Progress", "In Progress"),
     ("Completed", "Completed"),

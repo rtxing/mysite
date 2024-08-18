@@ -175,11 +175,12 @@ def detailbooking(request, bookingid):
 def booking2(request):
     """url: api/car/pk"""
     try:
-        print("in booking 2 ")
+        print("in booking 2... ")
         data = json.loads(request.body.decode())
         user = User.objects.get(phone=int(data['user']))
         shop = Carshop.objects.get(id = int(data['shop']) )
-        b = Booking.objects.create(booking_status= "In Progress", shop= shop, customer = user, driver = data['driver'], date_time = data['date_time'])
+        service = Service.objects.get(id = int(data['service']) )
+        b = Booking.objects.create(service = service, booking_status= "In Progress", shop= shop, customer = user, driver = data['driver'], date_time = data['date_time'])
         b.save()
     except:
         # Whoopsie
