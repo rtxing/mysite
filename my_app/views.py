@@ -71,7 +71,7 @@ def login_view(request):
 #        return Response("Successfully generated OTP", status=status.HTTP_200_OK, template_name='')
 
     except:
-        user = User.objects.create(phone=phone, name = name, username=name.replace(" ", ""))
+        user = User.objects.create(phone=phone, latitude= latitude, longitude=longitude, name = name, username=name.replace(" ", ""))
         print(user)
         print("in 2nd")
         
