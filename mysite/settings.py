@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+     'django.contrib.sites',
     #'members',
     "debug_toolbar",
     'rest_framework_simplejwt',
@@ -49,6 +50,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'my_app',
+    #'kensist',
+    #'campaign',
 ]
 
 MIDDLEWARE = [
@@ -173,4 +176,14 @@ INTERNAL_IPS = [
     "127.0.0.1"]
 
 CSRF_TRUSTED_ORIGINS = ['http://localhost:8100']
+
+SITE_ID = 1
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'thiruvenganna@gmail.com'  # Your email
+EMAIL_HOST_PASSWORD = 'ogxynrzfrhikchcl'  # Your email password
+
 

@@ -28,6 +28,9 @@ router = DefaultRouter()
 router.register(r'carshops', CarshopViewSet)
 router.register(r'booking', BookingViewSet)
 from my_app.views import login_view, verify_view
+#from kensist import views as kenviews
+from campaign import views as campviews
+
 
 urlpatterns = [
     #path('api/', include((router.urls, 'carshops'), namespace='carshop')),
@@ -42,13 +45,17 @@ urlpatterns = [
     path('api/add_car_details/', csviews.add_car_details, name= "detailboadd_car_detailsking"),
     path('api/get_services/', csviews.get_services, name= "get_services"),
     path('api/add_review/', csviews.add_review, name= "add_review"),
-
+    #path('kensist', kenviews.home, name='kensist'),
+    #path('kensist/get_project/<str:project>', kenviews.get_project, name='get_project'),
     path('nearones', views.nearones, name='nearones'),
     path('nearones2', views.nearones2, name='nearones2'),
+    #path('xing', kenviews.xing, name='xing'),
+    #path('campaign/', include('campaign.urls')),
+    path('campaign/', campviews.send_bulk_email, name='send_email'),
 
     #path('map', views.map, name='map'),
     #path('booking', views.booking, name='booking'),
-    #path('nearhome', views.nearhome, name='nearones2'),
+    path('nearhome', views.nearhome, name='nearones2'),
     path('hubio', views.hubio, name='hubio'),
     path('milk', views.milk, name='milk'),
     path('milk2', views.milk2, name='milk2'),

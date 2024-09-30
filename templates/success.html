@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Sent</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Email Sent Successfully!</h2>
+        <p>The following emails received the message:</p>
+        <ul>
+            {% for email in emails %}
+                <li>{{ email }}</li>
+            {% endfor %}
+        </ul>
+        <a href="{% url 'send_email' %}" class="btn btn-primary">Send Another Email</a>
+    </div>
+</body>
+</html>

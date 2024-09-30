@@ -3,7 +3,7 @@ from rest_framework import viewsets
 import geopy.distance
 from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
 # Create your views here.
-from .models import Carshop, Booking, Service, Rating
+from carshops.models import Carshop, Booking, Service, Rating
 from django.forms.models import model_to_dict
 from carshops.serializers import CarshopSerializer,BookingSerializer
 import json
@@ -115,9 +115,9 @@ def get_services(request):
 
 class CarshopViewSet(viewsets.ModelViewSet):
     queryset = Carshop.objects.all()
-    for i in queryset:
+    #for i in queryset:
 
-        serializer_class = CarshopSerializer
+     #   serializer_class = CarshopSerializer
 
 
 class BookingViewSet(viewsets.ModelViewSet):
