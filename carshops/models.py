@@ -8,6 +8,8 @@ from my_app.models import User
 
 
 class Carshop(models.Model):
+  user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carshops')
+
   shop_name = models.CharField(max_length=255)
   latitude = models.CharField(max_length=255)
   longitude = models.CharField(max_length=255)
@@ -16,8 +18,10 @@ class Carshop(models.Model):
   address = models.TextField()
   upload_carshop_image = models.ImageField(upload_to ='uploads/') 
   services = models.ManyToManyField('Service')
-  time_for_wash = models.IntegerField()
-
+  # time_for_wash = models.IntegerField()
+  opening_time = models.TimeField(default='09:00:00') 
+  closing_time = models.TimeField(default='17:00:00')
+  
   def __str__(self):
   	return str(self.id)
 
@@ -44,8 +48,29 @@ class Booking(models.Model):
         "my_app.User",
         on_delete=models.CASCADE, related_name = "cscustuser"
     )
+  address = models.ForeignKey(
+        "my_app.Address",
+        on_delete=models.CASCADE,
+        related_name="booking_address"
+    )
+  car = models.ForeignKey(
+        "Car",
+        on_delete=models.CASCADE,
+        related_name="booking_car"
+    )
+    
   driver = models.BooleanField()
-  date_time = models.DateTimeField()
+  driver = models.ForeignKey(
+        "my_app.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='driver_bookings'
+    )
+  # date_time = models.TimeField()
+  selected_slot = models.CharField(max_length=50)  # Store the selected time slot
+  driver_response = models.CharField(max_length=20, null=True, blank=True)  # 'Accepted' or 'Rejected'
+
   service = models.ForeignKey(
         "Service",
         on_delete=models.CASCADE, related_name = "bkservice"
@@ -58,6 +83,8 @@ class Booking(models.Model):
   booking_status = models.CharField(max_length=20,
                   choices=Booking_status_choices, default = "In_Progress"
                   )
+  created_at = models.DateTimeField(auto_now_add=True)
+  booking_date = models.DateField(blank=True, null=True) 
 
 
   def __str__(self):
@@ -74,6 +101,9 @@ class Car(models.Model):
         on_delete=models.CASCADE, related_name = "carcustuser"
     )
   upload = models.ImageField(upload_to ='uploads/') 
+  rc_photo = models.ImageField(upload_to ='uploads/') 
+  insurance_photo  = models.ImageField(upload_to ='uploads/')
+
   car_type_choices = (
     ("Sedan", "Sedan"),
     ("Hatch_Back", "Hatch Back")
@@ -87,6 +117,7 @@ class Car(models.Model):
 
 
 
+from datetime import timedelta
 
 
 class Service(models.Model):
@@ -100,12 +131,44 @@ class Service(models.Model):
   car_type_status = models.CharField(max_length=20,
                   choices=car_type_choices
                   )
+  duration_in_hours = models.CharField(max_length=255)
 
+  @property
+  def duration(self):
+      return timedelta(hours=self.duration_in_hours)
+      
 
   def __str__(self):
-    return str(self.service_name)
+    return str(self.id)
 
   	
+
+class CarPickupPhoto(models.Model):
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="pickup_photos")
+    driver = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'role': 'driver'})
+    image = models.ImageField(upload_to='uploads/car_pickup/')
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Pickup Photo {self.id} for Booking {self.booking.id}"
+
+
+class CarWashPhoto(models.Model):
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="wash_photos")
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='uploads/car_wash/')
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Wash Photo {self.id} for Booking {self.booking.id}"
+      
+
+class Notification(models.Model):
+    driver = models.ForeignKey(User, on_delete=models.CASCADE)
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE)
+    message = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 
 
 # class Post(models.Model):

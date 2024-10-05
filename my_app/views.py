@@ -1,3 +1,4 @@
+from my_app.serializers import AddressSerializer, CarshopSerializer, UserUpdateSerializer
 from .utils import send_otp
 import datetime
 from rest_framework.permissions import BasePermission,AllowAny, IsAuthenticated
@@ -18,19 +19,26 @@ from rest_framework.decorators import api_view
 import json
 from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
 from rest_framework.decorators import api_view, renderer_classes
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
+
 
 @csrf_exempt
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 def login_view(request):
+    print("Login view called") 
+    
     data = json.loads(request.body)
 
     phone = data['phone']
     name = data['name']
     latitude = data['latitude']
     longitude = data['longitude']
+    role = data.get('role', 'user')  # Default to 'user' if not provided
     print("phone is ", phone)
     print("name is ", name)
-    
+    print("role is ", role)  # Log the role for debugging
+
     try:
         user = User.objects.get(phone=phone)
         print(user)
@@ -44,77 +52,107 @@ def login_view(request):
 
         # Generate OTP and update user record
         otp = random.randint(100000, 999999)
+        print("otp",otp)
         otp_expiry = timezone.now() + datetime.timedelta(minutes=10)
         max_otp_try = int(user.max_otp_try) - 1
 
         user.otp = otp
+        print("user.otp",user.otp)
         user.otp_expiry = otp_expiry
         user.max_otp_try = max_otp_try
+        user.latitude = latitude
+        user.longitude = longitude
 
-        if max_otp_try == 0:
-            otp_max_out = timezone.now() + datetime.timedelta(hours=1)
-        elif max_otp_try == -1:
-            user.max_otp_try = 3
+        # Assign role
+        user.role = role
+        user.is_user = (role == 'user')
+        user.is_owner = (role == 'owner')
+        user.is_driver = (role == 'driver')
+
+        if max_otp_try <= 0:
+            user.otp_max_out = timezone.now() + datetime.timedelta(hours=1)
         else:
             user.otp_max_out = None
             user.max_otp_try = max_otp_try
-        user.latitude = latitude
-        user.longitude = longitude
+
         user.save()
 
         print(user.otp, 'OTP', user.phone)
-
         send_otp(user.phone, otp)
-        data = {'message': "Successfully generated OTP", 'status':status.HTTP_200_OK }
+        data = {'message': "Successfully generated OTP", 'status': status.HTTP_200_OK}
         return JsonResponse(data)
 
-#        return Response("Successfully generated OTP", status=status.HTTP_200_OK, template_name='')
-
-    except:
-        user = User.objects.create(phone=phone, latitude= latitude, longitude=longitude, name = name, username=name.replace(" ", ""))
+    except User.DoesNotExist:
+        # Create a new user with the specified role
+        user = User.objects.create(
+            phone=phone, 
+            latitude=latitude, 
+            longitude=longitude, 
+            name=name, 
+            username=name.replace(" ", ""),
+            role=role  # Set role on creation
+        )
         print(user)
         print("in 2nd")
-        
+
         otp = random.randint(100000, 999999)
         otp_expiry = timezone.now() + datetime.timedelta(minutes=10)
-        max_otp_try = int(user.max_otp_try) - 1
-
         user.otp = otp
         user.otp_expiry = otp_expiry
-        user.max_otp_try = max_otp_try
-
-        if max_otp_try == 0:
-            otp_max_out = timezone.now() + datetime.timedelta(hours=1)
-        elif max_otp_try == -1:
-            user.max_otp_try = 3
-        else:
-            user.otp_max_out = None
-            user.max_otp_try = max_otp_try
+        user.max_otp_try = 3  # Reset to maximum tries on creation
 
         user.latitude = latitude
         user.longitude = longitude
-        user.is_passenger = True
+        user.is_user = (role == 'user')
+        user.is_owner = (role == 'owner')
+        user.is_driver = (role == 'driver')
         user.save()
 
         send_otp(user.phone, otp)
-        data = {'message': "Successfully generated OTP", 'status':status.HTTP_200_OK }
+        data = {'message': "Successfully generated OTP", 'status': status.HTTP_200_OK}
         return JsonResponse(data)
 
-        #return Response("Successfully generated OTP", status=status.HTTP_200_OK, template_name='')
     else:
-        data = {'message': 'Phone number is incorrect', 'status':status.HTTP_401_UNAUTHORIZED }
+        data = {'message': 'Phone number is incorrect', 'status': status.HTTP_401_UNAUTHORIZED}
         return JsonResponse(data)
+
+
+
+
+otp_validator = RegexValidator(regex=r'^\d{6}$', message='OTP must be a 6-digit number.')
+
 
 @csrf_exempt
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 def verify_view(request):
-    data = json.loads(request.body)
-    print(data)
-    otp = data['otp']
-    print(otp)
     try:
-        user = User.objects.get(otp=otp)
-        if user:
+        data = json.loads(request.body)
+        print(data)
+
+        phone = data.get('phone', None)
+        print(phone)
+
+        otp = data.get('otp', '')
+        print(otp)
+
+    # otp = data['otp']
+    # print(otp)
+
+        if not phone or not otp:
+            return JsonResponse({'message': 'Phone and OTP are required', 'status': status.HTTP_400_BAD_REQUEST})
+
+        try:
+            otp_validator(otp) 
+        except ValidationError as e:
+            return JsonResponse({'message': 'Invalid OTP format. OTP must be 6 digits.', 'status': status.HTTP_400_BAD_REQUEST})
+
+        try:
+            user = User.objects.get(phone=phone,otp=otp)
+            print("user",user)
+            
+            if timezone.now() > user.otp_expiry:
+                return JsonResponse({'message': 'OTP has expired', 'status': status.HTTP_400_BAD_REQUEST})
+
             login(request, user)
             user.otp = None
             user.otp_expiry = None
@@ -123,10 +161,197 @@ def verify_view(request):
             user.save()
             refresh = RefreshToken.for_user(user)
             serialized_obj = serializers.serialize('json', [ user, ])
-            data = {'access': str(refresh.access_token), 'user':serialized_obj,  'status':status.HTTP_200_OK }
+            data = {
+                'access': str(refresh.access_token), 
+                'user':serialized_obj,  
+                'status':status.HTTP_200_OK 
+            }
             return JsonResponse(data)
 
-           # return Response({'access': str(refresh.access_token), 'user': serialized_obj}, status=status.HTTP_200_OK, template_name='')
-    except ObjectDoesNotExist:
-        data = {'message': 'Please enter the correct OTP', 'status':status.HTTP_400_BAD_REQUEST }
-        return JsonResponse(data)
+            # return Response({'access': str(refresh.access_token), 'user': serialized_obj}, status=status.HTTP_200_OK, template_name='')
+        except ObjectDoesNotExist:
+            data = {'message': 'Please enter the correct OTP', 'status':status.HTTP_400_BAD_REQUEST }
+            return JsonResponse(data)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'message': 'Invalid JSON format', 'status': status.HTTP_400_BAD_REQUEST})
+
+
+
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import api_view, parser_classes
+
+@api_view(['GET', 'PUT'])
+@parser_classes([MultiPartParser, FormParser])
+def update_user(request, user_id):
+    """URL: api/update_user/<user_id>"""
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "User not found."}, status=404)
+
+    if request.method == 'GET':
+        # Return user details
+        user_data = {
+            "id": user.id,
+            "name": user.name,
+            "phone": user.phone,
+            "profile_picture": user.profile_picture.url if user.profile_picture else None,
+            "role": user.role,  # Assuming 'role' is a field in your user model
+            "driving_license_no": user.driving_license_no  # Include driving_license_no in response
+        }
+        return JsonResponse(user_data, status=200)
+
+    elif request.method == 'PUT':
+        phone = request.data.get('phone')
+        name = request.data.get('name')
+        profile_picture = request.FILES.get('profile_picture')
+        driving_license = request.FILES.get('driving_license')
+        driving_license_no = request.data.get('driving_license_no')  # Get driving license number
+
+        if phone:
+            user.phone = phone
+        if name:
+            user.name = name
+        if profile_picture:
+            user.profile_picture = profile_picture
+        
+        if user.role == 'driver':
+            if driving_license:
+                user.driving_license = driving_license
+            if driving_license_no:
+                user.driving_license_no = driving_license_no 
+        
+        elif user.role != 'driver' and (driving_license or driving_license_no):
+            return JsonResponse({"error": "Only drivers can upload a driving license or license number."}, status=400)
+
+        user.save()
+
+        return JsonResponse({'message': 'User updated successfully.', 'user_id': user.id}, status=200)
+
+    return JsonResponse({"error": "Invalid request method."}, status=405)
+
+
+
+
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+@api_view(['POST'])
+def add_address(request):
+    """URL: api/add-address"""
+    try:
+        print("In add_address...")
+
+        data = json.loads(request.body.decode())
+        phone = data.get('phone')
+        
+        if not phone:
+            return JsonResponse({
+                "error": {
+                    "user": ["This field is required."]
+                }
+            }, status=400)
+
+        try:
+            user = User.objects.get(phone=phone)
+        except User.DoesNotExist:
+            return HttpResponseNotFound(
+                json.dumps({"error": "User not found."}),
+                content_type="application/json",
+            )
+
+        address_data = {
+            'street': data.get('street'),
+            'city': data.get('city'),
+            'state': data.get('state'),
+            'postal_code': data.get('postal_code'),
+            'country': data.get('country'),
+        }
+
+        serializer = AddressSerializer(data=address_data)
+        if serializer.is_valid():
+            serializer.save(user=user) 
+            return JsonResponse({'message': 'Address added successfully.', 'data': serializer.data}, status=201)
+        
+        return JsonResponse({'error': serializer.errors}, status=400)
+
+    except Exception as e:
+        return HttpResponseNotFound(
+            json.dumps({"error": str(e)}),
+            content_type="application/json",
+        )
+    return JsonResponse({'message': "Address addition process completed."})
+
+
+@api_view(['GET'])
+@csrf_exempt
+def get_addresses_by_phone(request, phone):
+    """URL: api/get-addresses/<phone>"""
+    try:
+        print(f"In get_addresses_by_phone with phone: {phone}")
+
+        try:
+            user = User.objects.get(phone=phone)
+        except User.DoesNotExist:
+            return HttpResponseNotFound(
+                json.dumps({"error": "User not found."}),
+                content_type="application/json",
+            )
+
+        addresses = Address.objects.filter(user=user)
+        print("addresses",addresses)
+
+        serializer = AddressSerializer(addresses, many=True)
+        print("serializer",serializer)
+
+        addresses_with_id = [
+            {
+                "id": address.id, 
+                **address_data  
+            }
+            for address, address_data in zip(addresses, serializer.data)
+        ]
+        print("addresses_with_id",addresses_with_id)
+
+        return JsonResponse({'addresses': addresses_with_id}, status=200)
+
+    except Exception as e:
+        return HttpResponseNotFound(
+            json.dumps({"error": str(e)}),
+            content_type="application/json",
+        )
+        
+        
+
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@api_view(['PUT','GET'])
+def update_address(request, address_id):
+    """URL: api/update-address/<address_id>"""
+    try:
+        print(f"In update_address with address_id: {address_id}")
+
+        # Retrieve the address by ID
+        try:
+            address = Address.objects.get(id=address_id)
+        except Address.DoesNotExist:
+            return HttpResponseNotFound(
+                json.dumps({"error": "Address not found."}),
+                content_type="application/json",
+            )
+
+        # Deserialize the incoming data
+        data = json.loads(request.body.decode())
+        serializer = AddressSerializer(address, data=data, partial=True)  # Allow partial updates
+
+        if serializer.is_valid():
+            serializer.save()  # Save the updated address
+            return JsonResponse({'message': 'Address updated successfully.', 'data': serializer.data}, status=200)
+        
+        return JsonResponse({'error': serializer.errors}, status=400)
+
+    except Exception as e:
+        return HttpResponseNotFound(
+            json.dumps({"error": str(e)}),
+            content_type="application/json",
+        )
+        

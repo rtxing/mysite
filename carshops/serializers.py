@@ -10,5 +10,5 @@ class CarshopSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
-        fields = ['shop', 'date_time']
+        fields = ['id', 'shop', 'customer', 'car', 'driver', 'selected_slot', 'driver_response']  # Include valid fields
 
