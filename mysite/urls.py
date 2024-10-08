@@ -66,11 +66,11 @@ urlpatterns = [
     path('updateaddress/<int:address_id>/', update_address, name='update_address'),
     path('api/car/<str:phone>/', get_cars_by_phone, name='get_cars_by_phone'),  # URL pattern for phone
     path('api/car/update/<int:id>/', update_car_details, name='update_car_details'),  # URL pattern for updating car
-    path('update_user/<int:user_id>/', update_user, name='update_user'),
+    path('update_user/<str:phone>/', update_user, name='update_user'),
     path('api/fetch_available_slots/', fetch_available_slots, name='fetch_available_slots'),
     path('api/create_booking/', create_booking, name='create_booking'),
 
-    path('api/get_driver_notifications/', get_driver_notifications, name='get_driver_notifications'),  # New endpoint
+    path('api/get_driver_notifications/', get_driver_notifications, name='get_driver_notifications'),
 
     path('respond_to_booking/<int:booking_id>/', respond_to_booking, name='respond_to_booking'),
     path('api/bookings/<int:booking_id>/', BookingDetailAPIView.as_view(), name='booking_detail'),

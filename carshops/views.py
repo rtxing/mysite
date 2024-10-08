@@ -592,13 +592,8 @@ def get_cars_by_phone(request, phone):
             for car in cars
         ]
 
-        if not car_details:
-            return JsonResponse({'message': 'No cars found for this phone number.'}, status=404)
+        return JsonResponse({'cars': car_details}, status=200)
 
-        return JsonResponse({'cars': car_details})
-
-    except User.DoesNotExist:
-        return JsonResponse({'ERR': 'User not found.'}, status=404)
     except Exception as error:
         return HttpResponseNotFound(
             json.dumps({"ERR": str(error)}),
