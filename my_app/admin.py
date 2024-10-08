@@ -11,12 +11,7 @@ class UserAdmin(BaseUserAdmin):
         (None, {'fields': ('role', 'latitude', 'longitude', 'phone')}),
     )
 
-
-class AddressAdmin(admin.ModelAdmin):
-    list_display = ('id','user', 'street', 'city', 'state', 'postal_code', 'country')
-    search_fields = ('user__username', 'street', 'city', 'state', 'postal_code', 'country')
-    list_filter = ('state', 'country')
-
-admin.site.register(Address, AddressAdmin)
-# 
 admin.site.register(User, UserAdmin)
+admin.site.register(Address)
+
+# admin.site.register(User)

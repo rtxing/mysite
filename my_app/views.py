@@ -181,31 +181,25 @@ def verify_view(request):
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import api_view, parser_classes
 
-
-import logging
-
 @api_view(['GET', 'PUT'])
 @parser_classes([MultiPartParser, FormParser])
-def update_user(request, phone):
-    """URL: api/update_user/<phone>"""
-    
-    logging.info(f"Searching for user with phone: {phone}")
-    
-    user = User.objects.filter(phone=phone).first()
-    if not user:
-        logging.error(f"No user found with phone: {phone}")
+def update_user(request, user_id):
+    """URL: api/update_user/<user_id>"""
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
         return JsonResponse({"error": "User not found."}, status=404)
 
     if request.method == 'GET':
+        # Return user details
         user_data = {
             "id": user.id,
             "name": user.name,
             "phone": user.phone,
             "profile_picture": user.profile_picture.url if user.profile_picture else None,
-            "role": user.role,
-            "driving_license_no": user.driving_license_no
+            "role": user.role,  # Assuming 'role' is a field in your user model
+            "driving_license_no": user.driving_license_no  # Include driving_license_no in response
         }
-        print("user_data",user_data)
         return JsonResponse(user_data, status=200)
 
     elif request.method == 'PUT':
@@ -213,7 +207,7 @@ def update_user(request, phone):
         name = request.data.get('name')
         profile_picture = request.FILES.get('profile_picture')
         driving_license = request.FILES.get('driving_license')
-        driving_license_no = request.data.get('driving_license_no')
+        driving_license_no = request.data.get('driving_license_no')  # Get driving license number
 
         if phone:
             user.phone = phone

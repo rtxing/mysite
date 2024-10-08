@@ -511,22 +511,13 @@ def add_car_details(request):
     """url: api/car/pk"""
     try:
         if request.method == 'POST':
-            if request.content_type == 'application/json': 
-                data = json.loads(request.body)
-            else: 
-                data = request.POST
-
-            model = data.get('model')
-            color = data.get('color')
-            car_number = data.get('car_number')
-            car_name = data.get('car_name')
-            car_type = data.get('car_type')
-            phone = data.get('phone')
-
-            if not all([model, color, car_number, car_name, car_type, phone]):
-                return JsonResponse({"ERR": "Missing required fields"}, status=400)
-
-            user = User.objects.get(phone=int(phone))
+            data = request.POST
+            model = data['model']
+            color = data['color']
+            car_number = data['car_number']
+            car_name = data['car_name']
+            car_type = data['car_type']
+            user = User.objects.get(phone=int(data['phone']))
 
             upload = request.FILES.get('upload')
             rc_photo = request.FILES.get('rc_photo')
@@ -544,14 +535,14 @@ def add_car_details(request):
                 insurance_photo=insurance_photo
             )
             c.save()
-
-            return JsonResponse({'message': "Car successfully added."}, status=201)
-
     except Exception as error:
         return HttpResponseNotFound(
             json.dumps({"ERR": str(error)}),
             content_type="application/json",
         )
+
+    data = {'message': "Car successfully added."}
+    return JsonResponse(data)
 
 
 
@@ -601,8 +592,13 @@ def get_cars_by_phone(request, phone):
             for car in cars
         ]
 
-        return JsonResponse({'cars': car_details}, status=200)
+        if not car_details:
+            return JsonResponse({'message': 'No cars found for this phone number.'}, status=404)
 
+        return JsonResponse({'cars': car_details})
+
+    except User.DoesNotExist:
+        return JsonResponse({'ERR': 'User not found.'}, status=404)
     except Exception as error:
         return HttpResponseNotFound(
             json.dumps({"ERR": str(error)}),
