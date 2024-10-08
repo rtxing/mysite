@@ -10,7 +10,7 @@ class AddressSerializer(serializers.ModelSerializer):
         model = Address
         fields = ['user', 'street', 'city', 'state', 'postal_code', 'country']
         extra_kwargs = {
-            'user': {'required': True}  # Ensure the user field is required
+            'user': {'required': True}
         }
 
 

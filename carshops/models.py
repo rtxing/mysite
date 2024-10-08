@@ -49,7 +49,7 @@ class Booking(models.Model):
         on_delete=models.CASCADE, related_name = "cscustuser"
     )
   address = models.ForeignKey(
-        "my_app.Address",
+        "my_app.Address", null=True, blank=True,
         on_delete=models.CASCADE,
         related_name="booking_address"
     )
