@@ -41,6 +41,19 @@ class User(AbstractUser):
         
     def __str__(self):
         return str(self.id) 
+
+    @classmethod
+    def create_superuser(cls, username, email=None, password=None, **kwargs):
+        if password is None:
+            raise TypeError('Password should not be None')
+
+        # Create the superuser
+        user = cls(username=username, email=email, **kwargs)
+        user.set_password(password)
+        user.is_superuser = True
+        user.is_staff = True
+        user.save()
+        return user
     
     
 class Address(models.Model):

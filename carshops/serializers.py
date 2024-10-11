@@ -4,7 +4,7 @@ from .models import Carshop, Booking
 class CarshopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Carshop
-        fields = ['id', 'shop_name','owner_name', 'phone1','time_for_wash', 'upload_carshop_image', 'address', 'services']
+        fields = ['id', 'shop_name','owner_name', 'phone1', 'upload_carshop_image', 'address', 'services']
 
 
 class BookingSerializer(serializers.ModelSerializer):

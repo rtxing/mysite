@@ -62,34 +62,102 @@ def carshops_geo(request, lat, longt):
     return JsonResponse([serialized_qs,distance, services], safe = False)
 
 
+# def get_previous_orders(request, phone):
+#     """url: api/car/pk"""
+#     try:
+#         print("in PRE")
+#         shops = []
+#         user = User.objects.get(phone = phone)
+#         bookings = Booking.objects.filter(customer = user).order_by('-id') 
+#         for i in bookings:
+#             shops.append(i.shop)
+#             #print(dir(i.shop))
+#         print(shops)
+#     except Exception as e: 
+#         # Whoopsie
+#         print(repr(e))
+#         return HttpResponseNotFound(
+#             json.dumps({"ERR": "No Car Wash shops found"}),
+#             content_type="application/json",
+#         )
+
+
+
+
+#     serialized_qs = serializers.serialize('json', bookings)
+#     serialized_qs = json.loads(serialized_qs)
+#     serialized_ss = serializers.serialize('json', shops)
+#     serialized_ss = json.loads(serialized_ss)
+#     # Serialise your car or do something with it
+#     return JsonResponse([serialized_qs,serialized_ss], safe = False)
+
+
+@api_view(['GET'])
 def get_previous_orders(request, phone):
-    """url: api/car/pk"""
+    """Retrieve all previous orders by phone number."""
     try:
-        print("in PRE")
-        shops = []
-        user = User.objects.get(phone = phone)
-        bookings = Booking.objects.filter(customer = user).order_by('-id') 
-        for i in bookings:
-            shops.append(i.shop)
-            #print(dir(i.shop))
-        print(shops)
-    except Exception as e: 
-        # Whoopsie
-        print(repr(e))
+        # Retrieve the user based on the provided phone number
+        user = User.objects.get(phone=phone)
+
+        # Fetch previous bookings for the user
+        bookings = Booking.objects.filter(customer=user)
+
+        # Prepare the list of booking details
+        order_details = [
+            {
+                "id": booking.id,
+                "customer": {
+                    "customer_id": booking.customer.id,
+                    "name": booking.customer.name,
+                    "phone": booking.customer.phone,
+                },
+                "shop": {
+                    "shop_id": booking.shop.id,
+                    "name": booking.shop.shop_name,
+                    'upload_carshop_image_url': booking.shop.upload_carshop_image.url if booking.shop.upload_carshop_image else None,
+                    "owner": booking.shop.owner_name,
+                    "phone": booking.shop.phone1,
+                },
+                "address": {
+                    "address_id": booking.address.id,
+                    "street": booking.address.street,
+                    "city": booking.address.city,
+                    "state": booking.address.state,
+                    "postal_code": booking.address.postal_code,
+                    "country": booking.address.country,
+                },
+                "car": {
+                    "car_id": booking.car.id,
+                    "name": booking.car.car_name,
+                    "model": booking.car.model,
+                    "color": booking.car.color,
+                    "car_number": booking.car.car_number,
+                },
+                "booking_date": booking.booking_date,
+                "selected_slot": booking.selected_slot,
+                "driver_response": booking.driver_response,
+                "booking_status": booking.booking_status,
+                "service": {
+                    "service_id": booking.service.id,
+                    "service_name": booking.service.service_name,
+                    "cost": booking.service.cost,
+                }
+            }
+            for booking in bookings
+        ]
+
+        if not order_details:
+            return JsonResponse({'message': 'No orders found for this phone number.'}, status=404)
+
+        return JsonResponse({'orders': order_details})
+
+    except User.DoesNotExist:
+        return JsonResponse({'ERR': 'User not found.'}, status=404)
+    except Exception as error:
         return HttpResponseNotFound(
-            json.dumps({"ERR": "No Car Wash shops found"}),
+            json.dumps({"ERR": str(error)}),
             content_type="application/json",
         )
-
-   
-
-    serialized_qs = serializers.serialize('json', bookings)
-    serialized_qs = json.loads(serialized_qs)
-    serialized_ss = serializers.serialize('json', shops)
-    serialized_ss = json.loads(serialized_ss)
-    # Serialise your car or do something with it
-    return JsonResponse([serialized_qs,serialized_ss], safe = False)
-
 
 def get_services(request):
     """url: api/car/pk"""
@@ -156,23 +224,36 @@ def carshop_id(request, id, phone):
 from datetime import datetime, timedelta
 
 
+from django.http import JsonResponse, HttpResponseNotFound
+import json
+
 def detailbooking(request, bookingid):
     """url: api/car/pk"""
     try:
-        print("in booking...")
+        # Fetch the booking and related shop
         booking = Booking.objects.get(id=bookingid)
-        shop = Carshop.objects.get(id = booking.shop.id)
-        
-    except:
-        # Whoopsie
+        shop = Carshop.objects.get(id=booking.shop.id)
+    except Booking.DoesNotExist:
         return HttpResponseNotFound(
-            json.dumps({"ERR": f"booking  with id {id} not found"}),
-            content_type="application/json",
+            json.dumps({"ERR": f"Booking with id {bookingid} not found"}), 
+            content_type="application/json"
         )
-   
+    except Carshop.DoesNotExist:
+        return HttpResponseNotFound(
+            json.dumps({"ERR": f"Carshop related to booking with id {bookingid} not found"}), 
+            content_type="application/json"
+        )
+    
+    # Serialize booking and carshop data
+    booking_data = BookingSerializer(booking).data
+    shop_data = CarshopSerializer(shop).data
 
-    # Serialise your car or do something with it
-    return JsonResponse([BookingSerializer(booking).data, CarshopSerializer(shop).data], safe= False)
+    # Return as a dictionary instead of a list for better clarity
+    return JsonResponse({
+        "booking": booking_data,
+        "carshop": shop_data
+    }, safe=False)
+
 
 
 
@@ -200,36 +281,35 @@ def generate_available_slots(service_duration, shop_id, booking_date):
     """
     Generate available time slots based on shop hours, service duration, booked slots, and a specific date.
     """
-    shop_opening_time = datetime.strptime(SHOP_OPENING_TIME, '%H:%M').time()
-    shop_closing_time = datetime.strptime(SHOP_CLOSING_TIME, '%H:%M').time()
+    try:
+        shop = Carshop.objects.get(id=shop_id)
+    except Carshop.DoesNotExist:
+        return []
+    
+    shop_opening_time = shop.opening_time
+    shop_closing_time = shop.closing_time
 
     available_slots = []
     current_start_time = datetime.combine(booking_date, shop_opening_time)
 
-    # Get all bookings for the specified shop and date
     bookings = Booking.objects.filter(shop_id=shop_id, booking_date=booking_date)
 
-    # Create a list of booked time periods
     booked_periods = []
     for booking in bookings:
         start_time_str, end_time_str = booking.selected_slot.split(' - ')
-        start_time = datetime.strptime(start_time_str, '%H:%M:%S').time()  # Updated format
-        end_time = datetime.strptime(end_time_str, '%H:%M:%S').time()  # Updated format
+        start_time = datetime.strptime(start_time_str, '%H:%M').time()
+        end_time = datetime.strptime(end_time_str, '%H:%M').time()
         booked_periods.append((start_time, end_time))
 
-    # Generate slots by adding service duration to the start time
     while current_start_time.time() < shop_closing_time:
         next_time = (current_start_time + service_duration).time()
 
-        # Check if the next time exceeds the shop closing time
         if next_time > shop_closing_time:
             break
 
-        # Check if the slot conflicts with existing bookings
         if not is_conflicting(current_start_time.time(), next_time, booked_periods):
             available_slots.append((current_start_time.time(), next_time))
 
-        # Move to the next possible slot
         current_start_time += timedelta(minutes=service_duration.seconds // 60)
 
     return available_slots
@@ -367,16 +447,14 @@ def notify_driver(driver, booking):
     print(f"Driver {driver.id} notified about booking ID {booking.id}")
 
 @csrf_exempt
-def get_driver_notifications(request):
+def get_driver_notifications(request, driver_phone):
     """Fetch notifications for the driver."""
     if request.method == 'GET':
-        driver_id = request.GET.get('driver_id')
-        
-        if not driver_id:
-            return JsonResponse({"error": "driver_id is required."}, status=400)
+        if not driver_phone:
+            return JsonResponse({"error": "driver_phone is required."}, status=400)
 
         try:
-            driver = User.objects.get(id=driver_id)
+            driver = User.objects.get(phone=driver_phone)
             notifications = Notification.objects.filter(driver=driver)
 
             notification_data = [
@@ -446,28 +524,33 @@ def respond_to_booking(request, booking_id):
 
 
 @csrf_exempt
-def get_driver_bookings(request):
+def get_driver_bookings(request, driver_phone):
     """Fetch all relevant bookings for a specific driver based on their availability and preferences."""
     if request.method == 'GET':
-        driver_id = request.GET.get('driver_id')
-
-        if not driver_id:
-            return JsonResponse({"error": "driver_id is required."}, status=400)
+        if not driver_phone:
+            return JsonResponse({"error": "driver_phone is required."}, status=400)
 
         try:
-            driver = User.objects.get(id=driver_id)
+            driver = User.objects.get(phone=driver_phone)
+            print("driver",driver)
 
             driver_location = (float(driver.latitude), float(driver.longitude))
-            default_radius = 20.0 
+            print("driver",driver)
+            
+            default_radius = 25.0 
 
             bookings = Booking.objects.filter(
                 Q(booking_status="Pending") | Q(booking_status="Accepted", driver=driver)
             )
+            print("bookings",bookings)
 
             available_bookings = []
             for booking in bookings:
                 booking_location = (float(booking.customer.latitude), float(booking.customer.longitude))
+                print("booking_location",booking_location)
+                
                 distance = haversine(driver_location[0], driver_location[1], booking_location[0], booking_location[1])
+                print("distance",distance)
 
                 if distance <= default_radius:
                     available_bookings.append({
@@ -734,8 +817,14 @@ class BookingDetailAPIView(APIView):
                 "driver_response": booking.driver_response,
                 "booking_status": booking.booking_status,
                 "service": {
+                    "service_id": booking.service.id,
                     "service_name": booking.service.service_name,
+                    "service_wash_time": booking.service.duration_in_hours,
                     "cost": booking.service.cost,
+                },
+                "driver": {
+                    "driver_id": booking.driver.id,
+                    "driver_name": booking.driver.name,
                 },
                 "pickup_photos": pickup_photos_data,
                 "car_wash_photos": car_wash_photos_data
@@ -1038,3 +1127,78 @@ def carshop_detail(request, carshop_id):
             return JsonResponse({'ERR': str(error)}, status=400)
 
     return JsonResponse({'ERR': 'Invalid request method.'}, status=405)
+
+
+
+@api_view(['GET'])
+def get_carshop_and_bookings(request, phone):
+    
+    try:
+        carshop = Carshop.objects.get(user__phone=phone)
+        print("carshop",carshop)
+
+        bookings = Booking.objects.filter(shop=carshop)
+        print("bookings",bookings)
+
+        booking_details = [
+            {
+                "id": booking.id,
+                "customer": {
+                    "customer_id": booking.customer.id,
+                    "name": booking.customer.name,
+                    "phone": booking.customer.phone,
+                },
+                "address": {
+                    "address_id": booking.address.id,
+                    "street": booking.address.street,
+                    "city": booking.address.city,
+                    "state": booking.address.state,
+                    "postal_code": booking.address.postal_code,
+                    "country": booking.address.country,
+                },
+                "car": {
+                    "car_id": booking.car.id,
+                    "name": booking.car.car_name,
+                    "model": booking.car.model,
+                    "color": booking.car.color,
+                    "car_number": booking.car.car_number,
+                },
+                "selected_slot": booking.selected_slot,
+                "driver_response": booking.driver_response,
+                "booking_status": booking.booking_status,
+                "booking_date": booking.booking_date,
+                "service": {
+                    "service_id": booking.service.id,
+                    "service_name": booking.service.service_name,
+                    "cost": booking.service.cost,
+                }
+            }
+            for booking in bookings
+        ]
+
+        print("booking_details",booking_details)
+
+        carshop_details = {
+            "shop_id": carshop.id,
+            "shop_name": carshop.shop_name,
+            "owner": carshop.owner_name,
+            "phone": carshop.user.phone,
+            "latitude": carshop.latitude,
+            "longitude": carshop.longitude,
+            "address": carshop.address,
+            "upload_carshop_image_url": carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
+            "services": [service.service_name for service in carshop.services.all()],
+            "bookings": booking_details
+        }
+
+        print("carshop_details",carshop_details)
+
+        return JsonResponse({'carshop': carshop_details})
+
+    except Carshop.DoesNotExist:
+        return JsonResponse({'ERR': 'Carshop not found for this phone number.'}, status=404)
+    except Exception as error:
+        return HttpResponseNotFound(
+            json.dumps({"ERR": str(error)}),
+            content_type="application/json",
+        )

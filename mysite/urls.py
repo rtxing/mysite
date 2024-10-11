@@ -19,7 +19,7 @@ from django.urls import path, include
 from members import views
 from carshops import views as csviews
 
-from carshops.views import BookingDetailAPIView, CarshopViewSet, add_carshop, car_pickup_photos, car_wash_photos, carshop_detail,carshop_id,BookingViewSet, create_booking, fetch_available_slots, get_cars_by_phone, get_driver_bookings, get_driver_notifications, respond_to_booking, update_car_details
+from carshops.views import BookingDetailAPIView, CarshopViewSet, add_carshop, car_pickup_photos, car_wash_photos, carshop_detail,carshop_id,BookingViewSet, create_booking, fetch_available_slots, get_cars_by_phone, get_carshop_and_bookings, get_driver_bookings, get_driver_notifications, respond_to_booking, update_car_details
 from django.conf.urls.static import static
 from django.conf import settings
 from debug_toolbar.toolbar import debug_toolbar_urls
@@ -70,11 +70,13 @@ urlpatterns = [
     path('api/fetch_available_slots/', fetch_available_slots, name='fetch_available_slots'),
     path('api/create_booking/', create_booking, name='create_booking'),
 
-    path('api/get_driver_notifications/', get_driver_notifications, name='get_driver_notifications'),  # New endpoint
+
+    #Driver Booking
+    path('api/get_driver_notifications/<str:driver_phone>/', get_driver_notifications, name='get_driver_notifications'),  # Include phone in the path
 
     path('respond_to_booking/<int:booking_id>/', respond_to_booking, name='respond_to_booking'),
     path('api/bookings/<int:booking_id>/', BookingDetailAPIView.as_view(), name='booking_detail'),
-    path('api/driver/bookings/', get_driver_bookings, name='get_driver_bookings'),
+    path('api/driver/bookings/<str:driver_phone>/', get_driver_bookings, name='get_driver_bookings'),
 
     path('api/booking/<int:booking_id>/pickup_photos/<str:driver_phone>/', car_pickup_photos, name='car_pickup_photos'),
     path('car-wash-photos/<int:booking_id>/<str:user_phone>/', car_wash_photos, name='car_wash_photos'),
@@ -82,5 +84,8 @@ urlpatterns = [
     
     path('api/carshop/add/', add_carshop, name='add_carshop'),  
     path('carshops/<int:carshop_id>/', carshop_detail, name='carshop_detail'),
+    
+    #to get Booking aganist to the carshop
+    path('api/carshop/<str:phone>/', get_carshop_and_bookings, name='get_carshop_and_bookings'),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + debug_toolbar_urls()
