@@ -482,11 +482,11 @@ def respond_to_booking(request, booking_id):
     if request.method == 'POST':
         data = json.loads(request.body.decode())
 
-        if 'driver_id' not in data or 'response' not in data:
-            return JsonResponse({"error": "driver_id or response key is missing in the request data"}, status=400)
+        if 'phone' not in data or 'response' not in data:
+            return JsonResponse({"error": "phone or response key is missing in the request data"}, status=400)
 
         try:
-            driver = User.objects.get(id=data['driver_id'])
+            driver = User.objects.get(phone=data['phone'])
             booking = Booking.objects.get(id=booking_id)
 
             if booking.booking_status == "Accepted":
@@ -539,9 +539,7 @@ def get_driver_bookings(request, driver_phone):
             
             default_radius = 25.0 
 
-            bookings = Booking.objects.filter(
-                Q(booking_status="Pending") | Q(booking_status="Accepted", driver=driver)
-            )
+            bookings = Booking.objects.filter(booking_status="Pending")
             print("bookings",bookings)
 
             available_bookings = []
@@ -570,6 +568,7 @@ def get_driver_bookings(request, driver_phone):
                         },
                         "car_id": booking.car.id,
                         "car_name": booking.car.car_name,
+                        "booking_date": booking.booking_date,
                         "selected_slot": booking.selected_slot,
                         "booking_status": booking.booking_status,
                         "driver_id": booking.driver.id if booking.driver else None,
@@ -675,13 +674,8 @@ def get_cars_by_phone(request, phone):
             for car in cars
         ]
 
-        if not car_details:
-            return JsonResponse({'message': 'No cars found for this phone number.'}, status=404)
-
         return JsonResponse({'cars': car_details})
 
-    except User.DoesNotExist:
-        return JsonResponse({'ERR': 'User not found.'}, status=404)
     except Exception as error:
         return HttpResponseNotFound(
             json.dumps({"ERR": str(error)}),
@@ -777,62 +771,73 @@ def get_available_bookings(request):
 from rest_framework.views import APIView
 
 
-class BookingDetailAPIView(APIView):
-    def get(self, request, booking_id):
-        print("booking_id",booking_id)
-        try:
-            booking = Booking.objects.get(id=booking_id)
-            
-            pickup_photos = CarPickupPhoto.objects.filter(booking=booking)
-            pickup_photos_data = [{"id": photo.id, "image_url": photo.image.url} for photo in pickup_photos]
+@api_view(['GET'])
+def get_booking_details(request, booking_id):
+    """url: api/booking/details/<booking_id>"""
+    try:
+        # Fetch the booking by ID
+        booking = Booking.objects.get(id=booking_id)
 
-            car_wash_photos = CarWashPhoto.objects.filter(booking=booking)
-            car_wash_photos_data = [{"id": photo.id, "image_url": photo.image.url} for photo in car_wash_photos]
+        # Get car pickup photos related to the booking
+        pickup_photos = CarPickupPhoto.objects.filter(booking=booking)
+        pickup_photos_data = [{"id": photo.id, "image_url": photo.image.url} for photo in pickup_photos]
 
-            booking_data = {
-                "id": booking.id,
-                "shop": {
-                    "name": booking.shop.shop_name,
-                    "owner": booking.shop.owner_name,
-                    "phone": booking.shop.phone1,
-                },
-                "customer": {
-                    "name": booking.customer.name,
-                    "phone": booking.customer.phone,
-                },
-                "address": {
-                    "street": booking.address.street,
-                    "city": booking.address.city,
-                    "state": booking.address.state,
-                    "postal_code": booking.address.postal_code,
-                    "country": booking.address.country,
-                },
-                "car": {
-                    "name": booking.car.car_name,
-                    "model": booking.car.model,
-                    "color": booking.car.color,
-                    "car_number": booking.car.car_number,
-                },
-                "selected_slot": booking.selected_slot,
-                "driver_response": booking.driver_response,
-                "booking_status": booking.booking_status,
-                "service": {
-                    "service_id": booking.service.id,
-                    "service_name": booking.service.service_name,
-                    "service_wash_time": booking.service.duration_in_hours,
-                    "cost": booking.service.cost,
-                },
-                "driver": {
-                    "driver_id": booking.driver.id,
-                    "driver_name": booking.driver.name,
-                },
-                "pickup_photos": pickup_photos_data,
-                "car_wash_photos": car_wash_photos_data
-            }
+        # Get car wash photos related to the booking
+        car_wash_photos = CarWashPhoto.objects.filter(booking=booking)
+        car_wash_photos_data = [{"id": photo.id, "image_url": photo.image.url} for photo in car_wash_photos]
 
-            return Response(booking_data, status=status.HTTP_200_OK)
-        except Booking.DoesNotExist:
-            return Response({"error": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
+        # Prepare booking data
+        booking_data = {
+            "id": booking.id,
+            "shop": {
+                "name": booking.shop.shop_name,
+                "owner": booking.shop.owner_name,
+                "phone": booking.shop.phone1,
+            },
+            "customer": {
+                "name": booking.customer.name,
+                "phone": booking.customer.phone,
+            },
+            "address": {
+                "street": booking.address.street,
+                "city": booking.address.city,
+                "state": booking.address.state,
+                "postal_code": booking.address.postal_code,
+                "country": booking.address.country,
+            },
+            "car": {
+                "name": booking.car.car_name,
+                "model": booking.car.model,
+                "color": booking.car.color,
+                "car_number": booking.car.car_number,
+            },
+            "selected_slot": booking.selected_slot,
+            "driver_response": booking.driver_response,
+            "booking_status": booking.booking_status,
+            "service": {
+                "service_id": booking.service.id,
+                "service_name": booking.service.service_name,
+                "service_wash_time": booking.service.duration_in_hours,
+                "cost": booking.service.cost,
+            },
+            "driver": {
+                "driver_id": booking.driver.id,
+                "driver_name": booking.driver.name,
+            },
+            "pickup_photos": pickup_photos_data,
+            "car_wash_photos": car_wash_photos_data,
+        }
+
+        return JsonResponse({"message": "Booking details fetched successfully.", "booking_details": booking_data})
+
+    except Booking.DoesNotExist:
+        return JsonResponse({"ERR": "Booking not found."}, status=404)
+    except Exception as error:
+        return HttpResponseNotFound(
+            json.dumps({"ERR": str(error)}),
+            content_type="application/json",
+        )
+
         
         
         
@@ -970,7 +975,7 @@ def car_wash_photos(request, booking_id, user_phone):
 @csrf_exempt
 @api_view(['POST'])
 def add_carshop(request):
-    """Add a new car shop associated with the owner."""
+    """Add a new car shop associated with the owner and multiple services."""
     try:
         phone = request.data.get('phone')
         shop_name = request.data.get('shop_name')
@@ -980,6 +985,10 @@ def add_carshop(request):
         phone1 = request.data.get('phone1')
         address = request.data.get('address')
         upload_carshop_image = request.FILES.get('upload_carshop_image')
+        
+        opening_time = request.data.get('opening_time', '09:00:00')
+        closing_time = request.data.get('closing_time', '17:00:00')
+
         services = request.data.get('services', [])
 
         user = User.objects.get(phone=phone)
@@ -992,18 +1001,18 @@ def add_carshop(request):
             phone1=phone1,
             address=address,
             upload_carshop_image=upload_carshop_image,
-            user=user  # Set the user as the owner
+            opening_time=opening_time,
+            closing_time=closing_time,
+            user=user
         )
 
-        # Add services if provided
         if services:
             for service_id in services:
-                service = Service.objects.get(id=service_id)  # Assuming you have a Service model
+                service = get_object_or_404(Service, id=service_id)
                 carshop.services.add(service)
 
         carshop.save()
 
-        # Prepare the response data with user ID, car shop ID, and associated data
         response_data = {
             'message': 'Car shop successfully added.',
             'carshop_id': carshop.id,
@@ -1016,6 +1025,8 @@ def add_carshop(request):
                 'phone1': carshop.phone1,
                 'address': carshop.address,
                 'upload_carshop_image': carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
+                'opening_time': carshop.opening_time.strftime('%H:%M:%S'),
+                'closing_time': carshop.closing_time.strftime('%H:%M:%S'),
                 'services': [
                     {
                         'id': service.id,
@@ -1035,22 +1046,15 @@ def add_carshop(request):
     except User.DoesNotExist:
         return JsonResponse({'ERR': 'User not found.'}, status=404)
     except Exception as error:
-        return HttpResponseNotFound(
-            json.dumps({"ERR": str(error)}),
-            content_type="application/json",
-        )
-
-
+        return JsonResponse({'ERR': str(error)}, status=400)
 
 @csrf_exempt
 @api_view(['GET', 'PUT'])
 def carshop_detail(request, carshop_id):
     """Retrieve or update a car shop by ID."""
-    # Retrieve the car shop or return 404 if not found
     carshop = get_object_or_404(Carshop, id=carshop_id)
 
     if request.method == 'GET':
-        # Prepare response data with car shop details
         response_data = {
             'carshop_id': carshop.id,
             'user_id': carshop.user.id,
@@ -1061,6 +1065,8 @@ def carshop_detail(request, carshop_id):
             'phone1': carshop.phone1,
             'address': carshop.address,
             'upload_carshop_image': carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
+            'opening_time': carshop.opening_time.strftime('%H:%M:%S'),
+            'closing_time': carshop.closing_time.strftime('%H:%M:%S'),
             'services': [
                 {
                     'id': service.id,
@@ -1083,17 +1089,19 @@ def carshop_detail(request, carshop_id):
             carshop.owner_name = request.data.get('owner_name', carshop.owner_name)
             carshop.phone1 = request.data.get('phone1', carshop.phone1)
             carshop.address = request.data.get('address', carshop.address)
+            
+            carshop.opening_time = request.data.get('opening_time', carshop.opening_time)
+            carshop.closing_time = request.data.get('closing_time', carshop.closing_time)
 
-            # Update the car shop image if provided
             if 'upload_carshop_image' in request.FILES:
                 carshop.upload_carshop_image = request.FILES['upload_carshop_image']
 
-            # Clear current services and add new ones if provided
             services = request.data.get('services', [])
-            carshop.services.clear()  # Clear existing services
-            for service_id in services:
-                service = get_object_or_404(Service, id=service_id)
-                carshop.services.add(service)
+            if services:
+                carshop.services.clear() 
+                for service_id in services:
+                    service = get_object_or_404(Service, id=service_id)
+                    carshop.services.add(service)
 
             carshop.save()
 
@@ -1108,6 +1116,8 @@ def carshop_detail(request, carshop_id):
                     'owner_name': carshop.owner_name,
                     'phone1': carshop.phone1,
                     'address': carshop.address,
+                    'opening_time ':carshop.opening_time,
+                    'closing_time': carshop.closing_time,
                     'upload_carshop_image': carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
                     'services': [
                         {
@@ -1125,8 +1135,6 @@ def carshop_detail(request, carshop_id):
 
         except Exception as error:
             return JsonResponse({'ERR': str(error)}, status=400)
-
-    return JsonResponse({'ERR': 'Invalid request method.'}, status=405)
 
 
 
@@ -1202,3 +1210,176 @@ def get_carshop_and_bookings(request, phone):
             json.dumps({"ERR": str(error)}),
             content_type="application/json",
         )
+        
+@api_view(['GET'])
+def get_accepted_bookings_by_driver(request, phone):
+    try:
+        # Fetch the driver by phone number
+        driver = User.objects.get(phone=phone, role='driver')
+        
+        # Get all bookings accepted by the driver
+        accepted_bookings = Booking.objects.filter(driver=driver, driver_response='Accepted')
+
+        # Prepare booking details for response
+        booking_details = [
+            {
+                "id": booking.id,
+                "shop": {
+                    "shop_id": booking.shop.id,
+                    "shop_name": booking.shop.shop_name,
+                    "latitude": booking.shop.latitude,
+                    "longitude": booking.shop.longitude,
+                    "owner_name": booking.shop.owner_name,
+                },
+                "customer": {
+                    "customer_id": booking.customer.id,
+                    "name": booking.customer.name,
+                    "phone": booking.customer.phone,
+                },
+                "address": {
+                    "address_id": booking.address.id,
+                    "street": booking.address.street,
+                    "city": booking.address.city,
+                    "state": booking.address.state,
+                    "postal_code": booking.address.postal_code,
+                    "country": booking.address.country,
+                },
+                "car": {
+                    "car_id": booking.car.id,
+                    "name": booking.car.car_name,
+                    "model": booking.car.model,
+                    "color": booking.car.color,
+                    "car_number": booking.car.car_number,
+                },
+                "selected_slot": booking.selected_slot,
+                "driver_response": booking.driver_response,
+                "booking_status": booking.booking_status,
+                "booking_date": booking.booking_date,
+                "service": {
+                    "service_id": booking.service.id,
+                    "service_name": booking.service.service_name,
+                    "cost": booking.service.cost,
+                }
+            }
+            for booking in accepted_bookings
+        ]
+
+        return JsonResponse({'accepted_bookings': booking_details}, status=200)
+
+    except User.DoesNotExist:
+        return JsonResponse({'ERR': 'Driver not found for this phone number.'}, status=404)
+    except Exception as error:
+        return HttpResponseNotFound(
+            json.dumps({"ERR": str(error)}),
+            content_type="application/json",
+        )
+        
+        
+@api_view(['PUT'])
+def update_booking_status(request, booking_id):
+    """url: api/booking/update-status/<booking_id>"""
+    try:
+        # Fetch the booking by ID
+        booking = Booking.objects.get(id=booking_id)
+
+        # Get the new booking status from the request body
+        new_status = request.data.get('booking_status')
+
+        # Check if the new status is valid based on the available choices
+        valid_statuses = [choice[0] for choice in Booking.Booking_status_choices]
+        if new_status not in valid_statuses:
+            return JsonResponse({"ERR": "Invalid booking status."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update the booking status
+        booking.booking_status = new_status
+        booking.save()
+
+        return JsonResponse({
+            "message": "Booking status updated successfully.",
+            "booking_id": booking.id,
+            "new_status": booking.booking_status
+        })
+
+    except Booking.DoesNotExist:
+        return JsonResponse({"ERR": "Booking not found."}, status=404)
+    except Exception as error:
+        return JsonResponse({"ERR": str(error)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['POST'])
+def add_service(request):
+    """Add a new service."""
+    try:
+        service_name = request.data.get('service_name')
+        cost = request.data.get('cost')
+        description = request.data.get('description')
+        car_type_status = request.data.get('car_type_status')
+        duration_in_hours = request.data.get('duration_in_hours')
+
+        # Create a new Service instance
+        service = Service.objects.create(
+            service_name=service_name,
+            cost=cost,
+            description=description,
+            car_type_status=car_type_status,
+            duration_in_hours=duration_in_hours,
+        )
+
+        service.save()
+
+        return JsonResponse({
+            'message': 'Service successfully added.',
+            'service_id': service.id,
+            'service_data': {
+                'service_name': service.service_name,
+                'cost': service.cost,
+                'description': service.description,
+                'car_type_status': service.car_type_status,
+                'duration_in_hours': service.duration_in_hours,
+            }
+        }, status=status.HTTP_201_CREATED)
+    except Exception as error:
+        return JsonResponse({'ERR': str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT'])
+def service_detail(request, service_id):
+    """Retrieve or update a service by ID."""
+    service = get_object_or_404(Service, id=service_id)
+
+    if request.method == 'GET':
+        # Prepare response data with service details
+        response_data = {
+            'service_id': service.id,
+            'service_name': service.service_name,
+            'cost': service.cost,
+            'description': service.description,
+            'car_type_status': service.car_type_status,
+            'duration_in_hours': service.duration_in_hours,
+        }
+        return JsonResponse(response_data, status=status.HTTP_200_OK)
+
+    elif request.method == 'PUT':
+        try:
+            service.service_name = request.data.get('service_name', service.service_name)
+            service.cost = request.data.get('cost', service.cost)
+            service.description = request.data.get('description', service.description)
+            service.car_type_status = request.data.get('car_type_status', service.car_type_status)
+            service.duration_in_hours = request.data.get('duration_in_hours', service.duration_in_hours)
+
+            service.save()
+
+            return JsonResponse({
+                'message': 'Service successfully updated.',
+                'service_id': service.id,
+                'service_data': {
+                    'service_name': service.service_name,
+                    'cost': service.cost,
+                    'description': service.description,
+                    'car_type_status': service.car_type_status,
+                    'duration_in_hours': service.duration_in_hours,
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as error:
+            return JsonResponse({'ERR': str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return JsonResponse({'ERR': 'Invalid request method.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)

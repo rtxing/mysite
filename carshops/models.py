@@ -78,6 +78,7 @@ class Booking(models.Model):
   Booking_status_choices = (
     ("In_Progress", "In Progress"),
     ("Completed", "Completed"),
+    ("On_Way_To_Pickup", "On Way to Pickup"),
     ("Cancelled", "Cancelled")
   )
   booking_status = models.CharField(max_length=20,
