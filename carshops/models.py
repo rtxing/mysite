@@ -69,7 +69,7 @@ class Booking(models.Model):
     )
   # date_time = models.TimeField()
   selected_slot = models.CharField(max_length=50)  # Store the selected time slot
-  driver_response = models.CharField(max_length=20, null=True, blank=True)  # 'Accepted' or 'Rejected'
+  driver_response = models.CharField(max_length=20, null=True, blank=True ,default="Pending")  # 'Accepted' or 'Rejected'
 
   service = models.ForeignKey(
         "Service",

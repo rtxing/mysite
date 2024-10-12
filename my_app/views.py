@@ -183,10 +183,10 @@ from rest_framework.decorators import api_view, parser_classes
 
 @api_view(['GET', 'PUT'])
 @parser_classes([MultiPartParser, FormParser])
-def update_user(request, user_id):
-    """URL: api/update_user/<user_id>"""
+def update_user(request, phone):
+    """URL: api/update_user/<phone>"""
     try:
-        user = User.objects.get(id=user_id)
+        user = User.objects.get(phone=phone)
     except User.DoesNotExist:
         return JsonResponse({"error": "User not found."}, status=404)
 

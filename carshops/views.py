@@ -533,20 +533,16 @@ def get_driver_bookings(request, driver_phone):
             print("driver",driver)
 
             driver_location = (float(driver.latitude), float(driver.longitude))
-            print("driver",driver)
+            print("driver_location",driver_location)
             
-            default_radius = 25.0 
+            default_radius = 25.0  # Adjust this based on your requirements
 
-            bookings = Booking.objects.filter(booking_status="Pending")
-            print("bookings",bookings)
+            bookings = Booking.objects.filter(driver_response="Pending",)
 
             available_bookings = []
             for booking in bookings:
                 booking_location = (float(booking.customer.latitude), float(booking.customer.longitude))
-                print("booking_location",booking_location)
-                
                 distance = haversine(driver_location[0], driver_location[1], booking_location[0], booking_location[1])
-                print("distance",distance)
 
                 if distance <= default_radius:
                     available_bookings.append({
@@ -555,7 +551,7 @@ def get_driver_bookings(request, driver_phone):
                         "shop_id": booking.shop.id,
                         "shop_name": booking.shop.shop_name,
                         "service_id": booking.service.id,
-                        "service_name": booking.service.service_name, 
+                        "service_name": booking.service.service_name,
                         "address_id": booking.address.id,
                         "address": {
                             "street": booking.address.street,
