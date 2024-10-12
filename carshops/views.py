@@ -1,5 +1,5 @@
 import datetime
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from rest_framework import viewsets
 import geopy.distance
 from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
@@ -352,8 +352,6 @@ def fetch_available_slots(request):
 
 from geopy.distance import geodesic
 
-from django.db import transaction
-
 @csrf_exempt
 def create_booking(request):
     """Creates a booking based on user input."""
@@ -373,10 +371,9 @@ def create_booking(request):
             selected_slot = data['selected_slot']
             booking_date = datetime.strptime(data['booking_date'], '%Y-%m-%d').date()  # Parse the booking date
 
-            # Create the booking
             booking = Booking.objects.create(
                 service=service,
-                booking_status="Pending",
+                booking_status="In_Progress",
                 shop=shop,
                 customer=user,
                 address=address,
@@ -384,6 +381,7 @@ def create_booking(request):
                 selected_slot=selected_slot,
                 booking_date=booking_date  # Save the booking date
             )
+            print("booking", booking)
 
             user_location = (float(user.latitude), float(user.longitude))
             default_radius = 20.0
@@ -498,7 +496,7 @@ def respond_to_booking(request, booking_id):
 
             if response == 'accepted':
                 booking.driver = driver
-                booking.booking_status = "Accepted"
+                # booking.booking_status = "Accepted"
                 booking.driver_response = "Accepted"
             else:
                 booking.driver_response = "Rejected"
@@ -775,7 +773,6 @@ from rest_framework.views import APIView
 def get_booking_details(request, booking_id):
     """url: api/booking/details/<booking_id>"""
     try:
-        # Fetch the booking by ID
         booking = Booking.objects.get(id=booking_id)
 
         # Get car pickup photos related to the booking
@@ -790,13 +787,13 @@ def get_booking_details(request, booking_id):
         booking_data = {
             "id": booking.id,
             "shop": {
-                "name": booking.shop.shop_name,
-                "owner": booking.shop.owner_name,
-                "phone": booking.shop.phone1,
+                "name": booking.shop.shop_name if booking.shop else None,
+                "owner": booking.shop.owner_name if booking.shop else None,
+                "phone": booking.shop.phone1 if booking.shop else None,
             },
             "customer": {
-                "name": booking.customer.name,
-                "phone": booking.customer.phone,
+                "name": booking.customer.name if booking.customer else None,
+                "phone": booking.customer.phone if booking.customer else None,
             },
             "address": {
                 "street": booking.address.street,
@@ -815,18 +812,20 @@ def get_booking_details(request, booking_id):
             "driver_response": booking.driver_response,
             "booking_status": booking.booking_status,
             "service": {
-                "service_id": booking.service.id,
-                "service_name": booking.service.service_name,
-                "service_wash_time": booking.service.duration_in_hours,
-                "cost": booking.service.cost,
+                "service_id": booking.service.id if booking.service else None,
+                "service_name": booking.service.service_name if booking.service else None,
+                "service_wash_time": booking.service.duration_in_hours if booking.service else None,
+                "cost": booking.service.cost if booking.service else None,
             },
             "driver": {
-                "driver_id": booking.driver.id,
-                "driver_name": booking.driver.name,
+                "driver_id": booking.driver.id if booking.driver else None,
+                "driver_name": booking.driver.name if booking.driver else None,
             },
             "pickup_photos": pickup_photos_data,
             "car_wash_photos": car_wash_photos_data,
         }
+
+        print("booking_data",booking_data)
 
         return JsonResponse({"message": "Booking details fetched successfully.", "booking_details": booking_data})
 
@@ -841,20 +840,22 @@ def get_booking_details(request, booking_id):
         
         
         
-from django.shortcuts import get_object_or_404
-        
 @csrf_exempt
 def car_pickup_photos(request, booking_id, driver_phone):
-    """Handle both GET and POST requests for car pickup photos."""
-    try:
-        booking = Booking.objects.get(id=booking_id)
-    except Booking.DoesNotExist:
-        return JsonResponse({"error": "Booking not found."}, status=404)
+    """Handle POST requests for car pickup photos."""
+    booking = get_object_or_404(Booking, id=booking_id)
+    print("booking",booking)
 
-    try:
-        driver = User.objects.get(phone=driver_phone, role='driver')
-    except User.DoesNotExist:
-        return JsonResponse({"error": "Driver not found."}, status=404)
+    driver = get_object_or_404(User, phone=driver_phone, role='driver')
+    print("driver",driver)
+
+    if booking.driver != driver:
+        print("booking.driver",booking.driver)
+        
+        return JsonResponse({"error": "This driver is not assigned to the booking."}, status=403)
+
+    if booking.booking_status != "On_Way_To_Pickup":
+        return JsonResponse({"error": "Photos can only be uploaded when the booking status is 'On Way to Pickup'."}, status=403)
 
     if request.method == 'POST':
         if 'image' not in request.FILES:
@@ -902,7 +903,6 @@ def car_pickup_photos(request, booking_id, driver_phone):
             "booking_data": booking_data
         })
 
-
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
@@ -910,7 +910,7 @@ def car_pickup_photos(request, booking_id, driver_phone):
 
 @csrf_exempt
 def car_wash_photos(request, booking_id, user_phone):
-    """Handle both GET and POST requests for car wash photos."""
+    """Handle POST requests for car wash photos."""
     try:
         booking = Booking.objects.get(id=booking_id)
     except Booking.DoesNotExist:
@@ -920,6 +920,9 @@ def car_wash_photos(request, booking_id, user_phone):
         user = User.objects.get(phone=user_phone)
     except User.DoesNotExist:
         return JsonResponse({"error": "User not found."}, status=404)
+
+    if booking.booking_status != "Completed":
+        return JsonResponse({"error": "Photos can only be uploaded when the service is Completed."}, status=403)
 
     if request.method == 'POST':
         if 'image' not in request.FILES:
@@ -985,11 +988,14 @@ def add_carshop(request):
         phone1 = request.data.get('phone1')
         address = request.data.get('address')
         upload_carshop_image = request.FILES.get('upload_carshop_image')
-        
-        opening_time = request.data.get('opening_time', '09:00:00')
-        closing_time = request.data.get('closing_time', '17:00:00')
 
         services = request.data.get('services', [])
+        
+        opening_time_str = request.data.get('opening_time', '09:00:00')
+        closing_time_str = request.data.get('closing_time', '17:00:00')
+
+        opening_time = datetime.strptime(opening_time_str, '%H:%M:%S').time()
+        closing_time = datetime.strptime(closing_time_str, '%H:%M:%S').time()
 
         user = User.objects.get(phone=phone)
 
@@ -1025,8 +1031,6 @@ def add_carshop(request):
                 'phone1': carshop.phone1,
                 'address': carshop.address,
                 'upload_carshop_image': carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
-                'opening_time': carshop.opening_time.strftime('%H:%M:%S'),
-                'closing_time': carshop.closing_time.strftime('%H:%M:%S'),
                 'services': [
                     {
                         'id': service.id,
@@ -1037,7 +1041,9 @@ def add_carshop(request):
                         'duration_in_hours': service.duration_in_hours,
                     }
                     for service in carshop.services.all()
-                ]
+                ],
+                'opening_time': carshop.opening_time.strftime('%H:%M:%S'),
+                'closing_time': carshop.closing_time.strftime('%H:%M:%S'),
             }
         }
 
