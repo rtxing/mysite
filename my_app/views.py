@@ -198,6 +198,7 @@ def update_user(request, phone):
             "phone": user.phone,
             "profile_picture": user.profile_picture.url if user.profile_picture else None,
             "role": user.role,  # Assuming 'role' is a field in your user model
+            "driving_license": user.driving_license.url if user.driving_license else None,
             "driving_license_no": user.driving_license_no  # Include driving_license_no in response
         }
         return JsonResponse(user_data, status=200)

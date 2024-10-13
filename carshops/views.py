@@ -285,7 +285,7 @@ def generate_available_slots(service_duration, shop_id, booking_date):
         shop = Carshop.objects.get(id=shop_id)
     except Carshop.DoesNotExist:
         return []
-    
+
     shop_opening_time = shop.opening_time
     shop_closing_time = shop.closing_time
 
@@ -297,14 +297,17 @@ def generate_available_slots(service_duration, shop_id, booking_date):
     booked_periods = []
     for booking in bookings:
         start_time_str, end_time_str = booking.selected_slot.split(' - ')
-        start_time = datetime.strptime(start_time_str, '%H:%M').time()
-        end_time = datetime.strptime(end_time_str, '%H:%M').time()
+        start_time = datetime.strptime(start_time_str, '%H:%M:%S').time() 
+        end_time = datetime.strptime(end_time_str, '%H:%M:%S').time()
         booked_periods.append((start_time, end_time))
 
     while current_start_time.time() < shop_closing_time:
         next_time = (current_start_time + service_duration).time()
 
         if next_time > shop_closing_time:
+            break
+
+        if next_time <= current_start_time.time():
             break
 
         if not is_conflicting(current_start_time.time(), next_time, booked_periods):
@@ -317,6 +320,8 @@ def generate_available_slots(service_duration, shop_id, booking_date):
 
 
 
+from datetime import timedelta
+
 @csrf_exempt
 def fetch_available_slots(request):
     """
@@ -325,19 +330,19 @@ def fetch_available_slots(request):
     if request.method == 'POST':
         data = json.loads(request.body.decode())
 
-        # Change 'date' to 'booking_date' in the check
         if 'shop' not in data or 'service' not in data or 'booking_date' not in data:
             return JsonResponse({"error": "shop, service, or booking_date key is missing in the request data"}, status=400)
 
         try:
             shop = Carshop.objects.get(id=data['shop'])
             service = Service.objects.get(id=data['service'])
-            # Parse 'booking_date' instead of 'date'
-            booking_date = datetime.strptime(data['booking_date'], '%Y-%m-%d').date()  # Parse the provided date
+            booking_date = datetime.strptime(data['booking_date'], '%Y-%m-%d').date()
         except (Carshop.DoesNotExist, Service.DoesNotExist, ValueError):
             return JsonResponse({"error": "Invalid shop, service ID, or booking_date format"}, status=404)
 
-        service_duration = timedelta(hours=int(service.duration_in_hours))
+        service_duration_hours = float(service.duration_in_hours)
+        service_duration = timedelta(hours=service_duration_hours)
+
         available_slots = generate_available_slots(service_duration, shop.id, booking_date)
 
         response_data = {
@@ -519,6 +524,8 @@ def respond_to_booking(request, booking_id):
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
+import time
+from django.http import StreamingHttpResponse
 
 
 @csrf_exempt
@@ -530,47 +537,51 @@ def get_driver_bookings(request, driver_phone):
 
         try:
             driver = User.objects.get(phone=driver_phone)
-            print("driver",driver)
 
-            driver_location = (float(driver.latitude), float(driver.longitude))
-            print("driver_location",driver_location)
-            
-            default_radius = 25.0  # Adjust this based on your requirements
+            def event_stream():
+                while True:
+                    driver_location = (float(driver.latitude), float(driver.longitude))
+                    default_radius = 20.0
 
-            bookings = Booking.objects.filter(driver_response="Pending",)
+                    bookings = Booking.objects.filter(driver_response="Pending")
+                    available_bookings = []
+                    
+                    for booking in bookings:
+                        booking_location = (float(booking.customer.latitude), float(booking.customer.longitude))
+                        distance = haversine(driver_location[0], driver_location[1], booking_location[0], booking_location[1])
 
-            available_bookings = []
-            for booking in bookings:
-                booking_location = (float(booking.customer.latitude), float(booking.customer.longitude))
-                distance = haversine(driver_location[0], driver_location[1], booking_location[0], booking_location[1])
+                        if distance <= default_radius:
+                            available_bookings.append({
+                                "booking_id": booking.id,
+                                "user_phone": booking.customer.phone,
+                                "shop_id": booking.shop.id,
+                                "shop_name": booking.shop.shop_name,
+                                "service_id": booking.service.id,
+                                "service_name": booking.service.service_name,
+                                "address_id": booking.address.id,
+                                "address": {
+                                    "street": booking.address.street,
+                                    "city": booking.address.city,
+                                    "state": booking.address.state,
+                                    "postal_code": booking.address.postal_code,
+                                    "country": booking.address.country,
+                                },
+                                "car_id": booking.car.id,
+                                "car_name": booking.car.car_name,
+                                "booking_date": booking.booking_date.isoformat() if booking.booking_date else None,
+                                "selected_slot": booking.selected_slot,
+                                "booking_status": booking.booking_status,
+                                "driver_id": booking.driver.id if booking.driver else None,
+                                "driver_name": f"{booking.driver.first_name} {booking.driver.last_name}" if booking.driver else None,
+                                "created_at": booking.created_at.isoformat(),
+                            })
 
-                if distance <= default_radius:
-                    available_bookings.append({
-                        "booking_id": booking.id,
-                        "user_phone": booking.customer.phone,
-                        "shop_id": booking.shop.id,
-                        "shop_name": booking.shop.shop_name,
-                        "service_id": booking.service.id,
-                        "service_name": booking.service.service_name,
-                        "address_id": booking.address.id,
-                        "address": {
-                            "street": booking.address.street,
-                            "city": booking.address.city,
-                            "state": booking.address.state,
-                            "postal_code": booking.address.postal_code,
-                            "country": booking.address.country,
-                        },
-                        "car_id": booking.car.id,
-                        "car_name": booking.car.car_name,
-                        "booking_date": booking.booking_date,
-                        "selected_slot": booking.selected_slot,
-                        "booking_status": booking.booking_status,
-                        "driver_id": booking.driver.id if booking.driver else None,
-                        "driver_name": f"{booking.driver.first_name} {booking.driver.last_name}" if booking.driver else None,
-                        "created_at": booking.created_at.isoformat(),
-                    })
+                    data = json.dumps({"bookings": available_bookings})
+                    yield f"data: {data}\n\n"
 
-            return JsonResponse({"bookings": available_bookings})
+                    time.sleep(1)
+
+            return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
 
         except User.DoesNotExist:
             return JsonResponse({"error": "Driver not found."}, status=404)
@@ -985,8 +996,8 @@ def add_carshop(request):
         address = request.data.get('address')
         upload_carshop_image = request.FILES.get('upload_carshop_image')
 
-        services = request.data.get('services', [])
-        
+        services_data = request.data.get('services', [])
+
         opening_time_str = request.data.get('opening_time', '09:00:00')
         closing_time_str = request.data.get('closing_time', '17:00:00')
 
@@ -994,6 +1005,7 @@ def add_carshop(request):
         closing_time = datetime.strptime(closing_time_str, '%H:%M:%S').time()
 
         user = User.objects.get(phone=phone)
+        print("user",user)
 
         carshop = Carshop.objects.create(
             shop_name=shop_name,
@@ -1008,10 +1020,19 @@ def add_carshop(request):
             user=user
         )
 
-        if services:
-            for service_id in services:
+        for service_data in services_data:
+            service_id = service_data.get('id')
+            if service_id:
                 service = get_object_or_404(Service, id=service_id)
-                carshop.services.add(service)
+            else:
+                service = Service.objects.create(
+                    service_name=service_data.get('service_name'),
+                    cost=service_data.get('cost'),
+                    description=service_data.get('description'),
+                    car_type_status=service_data.get('car_type_status'),
+                    duration_in_hours=service_data.get('duration_in_hours'),
+                )
+            carshop.services.add(service)
 
         carshop.save()
 
@@ -1049,6 +1070,8 @@ def add_carshop(request):
         return JsonResponse({'ERR': 'User not found.'}, status=404)
     except Exception as error:
         return JsonResponse({'ERR': str(error)}, status=400)
+
+from django.utils.dateparse import parse_time
 
 @csrf_exempt
 @api_view(['GET', 'PUT'])
@@ -1091,19 +1114,37 @@ def carshop_detail(request, carshop_id):
             carshop.owner_name = request.data.get('owner_name', carshop.owner_name)
             carshop.phone1 = request.data.get('phone1', carshop.phone1)
             carshop.address = request.data.get('address', carshop.address)
+
+            opening_time_str = request.data.get('opening_time', None)
+            closing_time_str = request.data.get('closing_time', None)
+
+            if opening_time_str:
+                carshop.opening_time = parse_time(opening_time_str)
             
-            carshop.opening_time = request.data.get('opening_time', carshop.opening_time)
-            carshop.closing_time = request.data.get('closing_time', carshop.closing_time)
+            if closing_time_str:
+                carshop.closing_time = parse_time(closing_time_str)
 
             if 'upload_carshop_image' in request.FILES:
                 carshop.upload_carshop_image = request.FILES['upload_carshop_image']
 
             services = request.data.get('services', [])
             if services:
-                carshop.services.clear() 
-                for service_id in services:
-                    service = get_object_or_404(Service, id=service_id)
-                    carshop.services.add(service)
+                for service_data in services:
+                    service_id = service_data.get('id')
+                    if service_id:
+                        service_instance = get_object_or_404(Service, id=service_id)
+                        service_instance.service_name = service_data.get('service_name', service_instance.service_name)
+                        service_instance.cost = service_data.get('cost', service_instance.cost)
+                        service_instance.description = service_data.get('description', service_instance.description)
+                        service_instance.car_type_status = service_data.get('car_type_status', service_instance.car_type_status)
+                        service_instance.duration_in_hours = service_data.get('duration_in_hours', service_instance.duration_in_hours)
+                        service_instance.save()
+
+                carshop.services.clear()
+                for service_data in services:
+                    service_id = service_data.get('id')
+                    service_instance = get_object_or_404(Service, id=service_id)
+                    carshop.services.add(service_instance)  # Add the service to the car shop
 
             carshop.save()
 
@@ -1118,8 +1159,8 @@ def carshop_detail(request, carshop_id):
                     'owner_name': carshop.owner_name,
                     'phone1': carshop.phone1,
                     'address': carshop.address,
-                    'opening_time ':carshop.opening_time,
-                    'closing_time': carshop.closing_time,
+                    'opening_time': carshop.opening_time.strftime('%H:%M:%S'),
+                    'closing_time': carshop.closing_time.strftime('%H:%M:%S'),
                     'upload_carshop_image': carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
                     'services': [
                         {
