@@ -389,7 +389,7 @@ def create_booking(request):
             print("booking", booking)
 
             user_location = (float(user.latitude), float(user.longitude))
-            default_radius = 20.0
+            default_radius = 25.0
 
             nearby_drivers = User.objects.filter(is_driver=True)
 
@@ -541,7 +541,7 @@ def get_driver_bookings(request, driver_phone):
             def event_stream():
                 while True:
                     driver_location = (float(driver.latitude), float(driver.longitude))
-                    default_radius = 20.0
+                    default_radius = 25.0
 
                     bookings = Booking.objects.filter(driver_response="Pending")
                     available_bookings = []
@@ -1426,3 +1426,203 @@ def service_detail(request, service_id):
             return JsonResponse({'ERR': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
     return JsonResponse({'ERR': 'Invalid request method.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+
+@csrf_exempt
+@api_view(['POST'])
+def add_carshop(request):
+    """Add a new car shop associated with the owner and multiple services."""
+    try:
+        phone = request.data.get('phone')
+        shop_name = request.data.get('shop_name')
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        owner_name = request.data.get('owner_name')
+        phone1 = request.data.get('phone1')
+        address = request.data.get('address')
+        upload_carshop_image = request.FILES.get('upload_carshop_image')
+
+        services_data = request.data.get('services', [])
+
+        opening_time_str = request.data.get('opening_time', '09:00:00')
+        closing_time_str = request.data.get('closing_time', '17:00:00')
+
+        opening_time = datetime.strptime(opening_time_str, '%H:%M:%S').time()
+        closing_time = datetime.strptime(closing_time_str, '%H:%M:%S').time()
+
+        user = User.objects.get(phone=phone)
+        print("user",user)
+
+        carshop = Carshop.objects.create(
+            shop_name=shop_name,
+            latitude=latitude,
+            longitude=longitude,
+            owner_name=owner_name,
+            phone1=phone1,
+            address=address,
+            upload_carshop_image=upload_carshop_image,
+            opening_time=opening_time,
+            closing_time=closing_time,
+            user=user
+        )
+
+        for service_data in services_data:
+            service_id = service_data.get('id')
+            if service_id:
+                service = get_object_or_404(Service, id=service_id)
+            else:
+                service = Service.objects.create(
+                    service_name=service_data.get('service_name'),
+                    cost=service_data.get('cost'),
+                    description=service_data.get('description'),
+                    car_type_status=service_data.get('car_type_status'),
+                    duration_in_hours=service_data.get('duration_in_hours'),
+                )
+            carshop.services.add(service)
+
+        carshop.save()
+
+        response_data = {
+            'message': 'Car shop successfully added.',
+            'carshop_id': carshop.id,
+            'user_id': user.id,
+            'carshop_data': {
+                'shop_name': carshop.shop_name,
+                'latitude': carshop.latitude,
+                'longitude': carshop.longitude,
+                'owner_name': carshop.owner_name,
+                'phone1': carshop.phone1,
+                'address': carshop.address,
+                'upload_carshop_image': carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
+                'services': [
+                    {
+                        'id': service.id,
+                        'service_name': service.service_name,
+                        'cost': service.cost,
+                        'description': service.description,
+                        'car_type_status': service.car_type_status,
+                        'duration_in_hours': service.duration_in_hours,
+                    }
+                    for service in carshop.services.all()
+                ],
+                'opening_time': carshop.opening_time.strftime('%H:%M:%S'),
+                'closing_time': carshop.closing_time.strftime('%H:%M:%S'),
+            }
+        }
+
+        return JsonResponse(response_data, status=201)
+
+    except User.DoesNotExist:
+        return JsonResponse({'ERR': 'User not found.'}, status=404)
+    except Exception as error:
+        return JsonResponse({'ERR': str(error)}, status=400)
+
+
+@csrf_exempt
+@api_view(['GET', 'PUT'])
+def ownercarshop_detail(request, phone):
+    
+    user = get_object_or_404(User, phone=phone)
+
+    carshop = get_object_or_404(Carshop, user=user)
+
+    if request.method == 'GET':
+        response_data = {
+            'carshop_id': carshop.id,
+            'user_id': carshop.user.id,
+            'shop_name': carshop.shop_name,
+            'latitude': carshop.latitude,
+            'longitude': carshop.longitude,
+            'owner_name': carshop.owner_name,
+            'phone1': carshop.phone1,
+            'address': carshop.address,
+            'upload_carshop_image': carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
+            'opening_time': carshop.opening_time.strftime('%H:%M:%S'),
+            'closing_time': carshop.closing_time.strftime('%H:%M:%S'),
+            'services': [
+                {
+                    'id': service.id,
+                    'service_name': service.service_name,
+                    'cost': service.cost,
+                    'description': service.description,
+                    'car_type_status': service.car_type_status,
+                    'duration_in_hours': service.duration_in_hours,
+                }
+                for service in carshop.services.all()
+            ]
+        }
+        return JsonResponse(response_data, status=200)
+
+    elif request.method == 'PUT':
+        try:
+            carshop.shop_name = request.data.get('shop_name', carshop.shop_name)
+            carshop.latitude = request.data.get('latitude', carshop.latitude)
+            carshop.longitude = request.data.get('longitude', carshop.longitude)
+            carshop.owner_name = request.data.get('owner_name', carshop.owner_name)
+            carshop.phone1 = request.data.get('phone1', carshop.phone1)
+            carshop.address = request.data.get('address', carshop.address)
+
+            opening_time_str = request.data.get('opening_time', None)
+            closing_time_str = request.data.get('closing_time', None)
+
+            if opening_time_str:
+                carshop.opening_time = parse_time(opening_time_str)
+            
+            if closing_time_str:
+                carshop.closing_time = parse_time(closing_time_str)
+
+            if 'upload_carshop_image' in request.FILES:
+                carshop.upload_carshop_image = request.FILES['upload_carshop_image']
+
+            services = request.data.get('services', [])
+            if services:
+                for service_data in services:
+                    service_id = service_data.get('id')
+                    if service_id:
+                        service_instance = get_object_or_404(Service, id=service_id)
+                        service_instance.service_name = service_data.get('service_name', service_instance.service_name)
+                        service_instance.cost = service_data.get('cost', service_instance.cost)
+                        service_instance.description = service_data.get('description', service_instance.description)
+                        service_instance.car_type_status = service_data.get('car_type_status', service_instance.car_type_status)
+                        service_instance.duration_in_hours = service_data.get('duration_in_hours', service_instance.duration_in_hours)
+                        service_instance.save()
+
+                carshop.services.clear()
+                for service_data in services:
+                    service_id = service_data.get('id')
+                    service_instance = get_object_or_404(Service, id=service_id)
+                    carshop.services.add(service_instance)  # Add the service to the car shop
+
+            carshop.save()
+
+            return JsonResponse({
+                'message': 'Car shop successfully updated.',
+                'carshop_id': carshop.id,
+                'user_id': carshop.user.id,
+                'carshop_data': {
+                    'shop_name': carshop.shop_name,
+                    'latitude': carshop.latitude,
+                    'longitude': carshop.longitude,
+                    'owner_name': carshop.owner_name,
+                    'phone1': carshop.phone1,
+                    'address': carshop.address,
+                    'opening_time': carshop.opening_time.strftime('%H:%M:%S'),
+                    'closing_time': carshop.closing_time.strftime('%H:%M:%S'),
+                    'upload_carshop_image': carshop.upload_carshop_image.url if carshop.upload_carshop_image else None,
+                    'services': [
+                        {
+                            'id': service.id,
+                            'service_name': service.service_name,
+                            'cost': service.cost,
+                            'description': service.description,
+                            'car_type_status': service.car_type_status,
+                            'duration_in_hours': service.duration_in_hours,
+                        }
+                        for service in carshop.services.all()
+                    ]
+                }
+            }, status=200)
+
+        except Exception as error:
+            return JsonResponse({'ERR': str(error)}, status=400)
