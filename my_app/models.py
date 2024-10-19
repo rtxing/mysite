@@ -11,7 +11,7 @@ USER_ROLES = (
     )
 
 class User(AbstractUser):
-    phone = models.CharField(default=uuid.uuid1, max_length=10,unique=True, blank=True, null=True, validators=[RegexValidator(
+    phone = models.CharField(max_length=10,unique=True,blank=True,null=True, validators=[RegexValidator(
         regex=r"^\d{10}", message="Phone number must be 10 digits only.")])
     # address = models.TextField(max_length=50, null=True, blank=True)
     dob = models.DateField(null=True, blank=True)
