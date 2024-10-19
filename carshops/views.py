@@ -10,6 +10,7 @@ from carshops.serializers import CarshopSerializer,BookingSerializer
 import json
 from django.core import serializers
 from django.views.decorators.csrf import csrf_exempt
+from carshops.utils import calculate_distance
 from my_app.models import User
 from rest_framework.response import Response
 from rest_framework import viewsets, status
@@ -23,21 +24,25 @@ from my_app.models import Address
 def carshops_geo(request, lat, longt):
     """url: api/car/pk"""
     try:
-        #print("in CG")
         return_list = []
         services = []
         distance = []
-        #print(lat, longt)
-        #user = User.objects.get(phone = phone)
+        
         carshops = Carshop.objects.all()
         for i in carshops:
             coords_1 = (lat, longt)
+            print("coords_1",coords_1)
             coords_2 = (i.latitude, i.longitude)
-            dist = int(geopy.distance.geodesic(coords_1, coords_2).km)
+            print("coords_2",coords_2)
+            
+            dist = calculate_distance(lat, longt, i.latitude, i.longitude)
+            print("dist",dist)
+            
             services.append(list(i.services.values()))
-            if dist <= 20:
+            if dist <= 10:
                 distance.append(dist)
                 return_list.append(i)
+
         print(return_list)
         keydict = dict(zip(return_list, distance))
         return_list.sort(key=keydict.get)
@@ -353,6 +358,7 @@ def fetch_available_slots(request):
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
+default_radius = 10.0
 
 
 from geopy.distance import geodesic
@@ -389,14 +395,18 @@ def create_booking(request):
             print("booking", booking)
 
             user_location = (float(user.latitude), float(user.longitude))
-            default_radius = 25.0
+            print("user_location", user_location)
+            
 
             nearby_drivers = User.objects.filter(is_driver=True)
 
             available_drivers = []
             for driver in nearby_drivers:
                 driver_location = (float(driver.latitude), float(driver.longitude))
-                distance = geodesic(user_location, driver_location).kilometers  # Use geodesic to calculate distance
+                print("driver_location", driver_location)
+
+                distance = calculate_distance(user.latitude, user.longitude, driver.latitude, driver.longitude)
+                print("distance", distance)
 
                 if distance <= default_radius:
                     available_drivers.append(driver)
@@ -541,14 +551,13 @@ def get_driver_bookings(request, driver_phone):
             def event_stream():
                 while True:
                     driver_location = (float(driver.latitude), float(driver.longitude))
-                    default_radius = 25.0
 
                     bookings = Booking.objects.filter(driver_response="Pending")
                     available_bookings = []
                     
                     for booking in bookings:
                         booking_location = (float(booking.customer.latitude), float(booking.customer.longitude))
-                        distance = haversine(driver_location[0], driver_location[1], booking_location[0], booking_location[1])
+                        distance = calculate_distance(driver_location[0], driver_location[1], booking_location[0], booking_location[1])
 
                         if distance <= default_radius:
                             available_bookings.append({
@@ -772,8 +781,6 @@ def get_available_bookings(request):
             return JsonResponse({"error": "Driver not found."}, status=404)
         
     return JsonResponse({"error": "Invalid request method"}, status=405)
-
-from rest_framework.views import APIView
 
 
 @api_view(['GET'])

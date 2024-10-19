@@ -90,12 +90,49 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+
+if os.getenv('ENvironment or host_name') == 'blue-liveconsole4':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'krishna235956$hubio',
+            'USER': 'krishna235956',
+            'PASSWORD': 'zxcvbnm99',
+            'HOST': 'krishna235956.mysql.pythonanywhere-services.com',
+            'PORT': '3306', 
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'amitdiwan',
+            'USER': 'root',
+            'PASSWORD': 'Qwerty@1029',
+            'HOST': '127.0.0.1',
+            'PORT': '3306', 
+        }
+    }
+
+
+    
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'krishna235956$hubio',
+#         'USER': 'krishna235956',
+#         'PASSWORD': 'zxcvbnm99',
+#         'HOST': 'krishna235956.mysql.pythonanywhere-services.com',
+#         'PORT': '3306', 
+#     }
+# }
 
 
 # Password validation
@@ -186,5 +223,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = ''  # Your email
 EMAIL_HOST_PASSWORD = ''  # Your email password
+from decouple import config
 
 
+GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY')

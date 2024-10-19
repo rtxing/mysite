@@ -28,7 +28,7 @@ class RatingAdmin(admin.ModelAdmin):
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ('id', 'shop__shop_name', 'customer__username', 'car__car_name', 'service__service_name', 'selected_slot','booking_status','driver_response', "driver__phone",'created_at', 'booking_date')
+    list_display = ('id', 'shop', 'customer', 'car', 'service', 'selected_slot','booking_status','driver_response', "driver",'created_at', 'booking_date')
     search_fields = ('shop__shop_name', 'customer__username', 'car__car_name', 'service__service_name')
     list_filter = ('booking_status', 'created_at', 'booking_date')
     autocomplete_fields = ['shop', 'customer', 'car', 'service', 'address']
