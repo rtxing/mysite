@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os
 import os.path
+import platform
 PROJECT_PATH = os.path.realpath(os.path.dirname(__file__))
 
 
@@ -98,7 +99,12 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # }
 
 
-if os.getenv('ENvironment or host_name') == 'blue-liveconsole4':
+if platform.system() == 'Windows':
+    hostname = platform.node()
+else:
+    hostname = os.uname()[1]
+
+if 'blue' in hostname:    
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -106,7 +112,7 @@ if os.getenv('ENvironment or host_name') == 'blue-liveconsole4':
             'USER': 'krishna235956',
             'PASSWORD': 'zxcvbnm99',
             'HOST': 'krishna235956.mysql.pythonanywhere-services.com',
-            'PORT': '3306', 
+            'PORT': '3306',
         }
     }
 else:
@@ -117,7 +123,7 @@ else:
             'USER': 'root',
             'PASSWORD': 'Qwerty@1029',
             'HOST': '127.0.0.1',
-            'PORT': '3306', 
+            'PORT': '3306',
         }
     }
 
