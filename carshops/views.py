@@ -358,7 +358,7 @@ def fetch_available_slots(request):
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
-default_radius = 10.0
+default_radius = 15.0
 
 
 from geopy.distance import geodesic
@@ -548,49 +548,42 @@ def get_driver_bookings(request, driver_phone):
         try:
             driver = User.objects.get(phone=driver_phone)
 
-            def event_stream():
-                while True:
-                    driver_location = (float(driver.latitude), float(driver.longitude))
+            driver_location = (float(driver.latitude), float(driver.longitude))
 
-                    bookings = Booking.objects.filter(driver_response="Pending")
-                    available_bookings = []
-                    
-                    for booking in bookings:
-                        booking_location = (float(booking.customer.latitude), float(booking.customer.longitude))
-                        distance = calculate_distance(driver_location[0], driver_location[1], booking_location[0], booking_location[1])
+            bookings = Booking.objects.filter(driver_response="Pending")
+            available_bookings = []
+            
+            for booking in bookings:
+                booking_location = (float(booking.customer.latitude), float(booking.customer.longitude))
+                distance = calculate_distance(driver_location[0], driver_location[1], booking_location[0], booking_location[1])
 
-                        if distance <= default_radius:
-                            available_bookings.append({
-                                "booking_id": booking.id,
-                                "user_phone": booking.customer.phone,
-                                "shop_id": booking.shop.id,
-                                "shop_name": booking.shop.shop_name,
-                                "service_id": booking.service.id,
-                                "service_name": booking.service.service_name,
-                                "address_id": booking.address.id,
-                                "address": {
-                                    "street": booking.address.street,
-                                    "city": booking.address.city,
-                                    "state": booking.address.state,
-                                    "postal_code": booking.address.postal_code,
-                                    "country": booking.address.country,
-                                },
-                                "car_id": booking.car.id,
-                                "car_name": booking.car.car_name,
-                                "booking_date": booking.booking_date.isoformat() if booking.booking_date else None,
-                                "selected_slot": booking.selected_slot,
-                                "booking_status": booking.booking_status,
-                                "driver_id": booking.driver.id if booking.driver else None,
-                                "driver_name": f"{booking.driver.first_name} {booking.driver.last_name}" if booking.driver else None,
-                                "created_at": booking.created_at.isoformat(),
-                            })
+                if distance <= default_radius:
+                    available_bookings.append({
+                        "booking_id": booking.id,
+                        "user_phone": booking.customer.phone,
+                        "shop_id": booking.shop.id,
+                        "shop_name": booking.shop.shop_name,
+                        "service_id": booking.service.id,
+                        "service_name": booking.service.service_name,
+                        "address_id": booking.address.id,
+                        "address": {
+                            "street": booking.address.street,
+                            "city": booking.address.city,
+                            "state": booking.address.state,
+                            "postal_code": booking.address.postal_code,
+                            "country": booking.address.country,
+                        },
+                        "car_id": booking.car.id,
+                        "car_name": booking.car.car_name,
+                        "booking_date": booking.booking_date.isoformat() if booking.booking_date else None,
+                        "selected_slot": booking.selected_slot,
+                        "booking_status": booking.booking_status,
+                        "driver_id": booking.driver.id if booking.driver else None,
+                        "driver_name": f"{booking.driver.first_name} {booking.driver.last_name}" if booking.driver else None,
+                        "created_at": booking.created_at.isoformat(),
+                    })
 
-                    data = json.dumps({"bookings": available_bookings})
-                    yield f"data: {data}\n\n"
-
-                    time.sleep(1)
-
-            return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+            return JsonResponse({"bookings": available_bookings}, status=200)
 
         except User.DoesNotExist:
             return JsonResponse({"error": "Driver not found."}, status=404)
@@ -804,10 +797,14 @@ def get_booking_details(request, booking_id):
                 "name": booking.shop.shop_name if booking.shop else None,
                 "owner": booking.shop.owner_name if booking.shop else None,
                 "phone": booking.shop.phone1 if booking.shop else None,
+                "latitude": booking.shop.latitude if booking.shop else None,
+                "longitude": booking.shop.longitude if booking.shop else None,
             },
             "customer": {
                 "name": booking.customer.name if booking.customer else None,
                 "phone": booking.customer.phone if booking.customer else None,
+                "latitude": booking.customer.latitude if booking.customer else None,
+                "longitude": booking.customer.longitude if booking.customer else None,
             },
             "address": {
                 "street": booking.address.street,
@@ -822,6 +819,7 @@ def get_booking_details(request, booking_id):
                 "color": booking.car.color,
                 "car_number": booking.car.car_number,
             },
+            "booking_date": booking.booking_date,
             "selected_slot": booking.selected_slot,
             "driver_response": booking.driver_response,
             "booking_status": booking.booking_status,
@@ -834,6 +832,9 @@ def get_booking_details(request, booking_id):
             "driver": {
                 "driver_id": booking.driver.id if booking.driver else None,
                 "driver_name": booking.driver.name if booking.driver else None,
+                "phone": booking.driver.phone if booking.driver else None,
+                "latitude": booking.driver.latitude if booking.driver else None,
+                "longitude": booking.driver.longitude if booking.driver else None,
             },
             "pickup_photos": pickup_photos_data,
             "car_wash_photos": car_wash_photos_data,
